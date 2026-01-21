@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<title>Pronóstico NMME – Lluvia acumulada | Clinaproagro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+html, body {
+  margin:0;
+  padding:0;
+  height:100%;
+  font-family: Arial, sans-serif;
+}
+
+/* ================= HEADER ================= */
+#header{
+  position:fixed;
+  top:0; left:0; right:0;
+  height:70px;
+  background:#ffffff;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:0 16px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.2);
+  z-index:2000;
+}
+
+#header img{
+  height:44px;
+}
+
+#header h1{
+  font-size:18px;
+  margin:0;
+}
+
+#header h2{
+  font-size:13px;
+  font-weight:normal;
+  margin:0;
+  color:#555;
+}
+
+/* ================= MAP ================= */
+#map {
+  position:absolute;
+  top:70px;
+  bottom:0;
+  left:0;
+  right:0;
+  z-index:1;
+}
+
+/* ================= CONTROL ================= */
+#control{
+  position:absolute;
+  top:90px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(255,255,255,0.95);
+  padding:10px 14px;
+  border-radius:10px;
+  box-shadow:0 0 10px rgba(0,0,0,0.25);
+  z-index:1500;
+  font-size:13px;
+}
+
+#control b{
+  display:block;
+  margin-bottom:4px;
+}
+
+input[type=range]{
+  width:260px;
+}
+
+/* ================= HOVER ================= */
+#hoverBox{
+  position:fixed;
+  z-index:3000;
+  background:rgba(255,255,255,0.95);
+  padding:6px 8px;
+  border-radius:6px;
+  box-shadow:0 0 6px rgba(0,0,0,0.3);
+  font-size:11px;
+  pointer-events:none;
+  display:none;
+}
+
+/* ================= LEGEND ================= */
+.legend{
+  background:white;
+  padding:8px 10px;
+  font-size:12px;
+  border-radius:8px;
+  box-shadow:0 0 15px rgba(0,0,0,0.3);
+}
+
+.legend-row{
+  display:flex;
+  align-items:center;
+}
+
+.legend-color{
+  width:16px;
+  height:16px;
+  margin-right:6px;
+  border:1px solid #ccc;
+}
+
+/* ===== Raster nítido ===== */
+canvas{
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ================= HEADER ================= -->
+<div id="header">
+  <img src="logo_clinaproagro.png" alt="Clinaproagro">
+  <div>
+    <h1>Pronóstico NMME</h1>
+    <h2>Lluvia acumulada – México</h2>
+  </div>
+</div>
+
+<!-- ================= CONTROL ================= -->
+<div id="control">
+  <b id="periodLabel">Periodo</b>
+  <input id="timeSlider" type="range" min="0" max="0" step="1">
+</div>
+
+<div id="map"></div>
+<div id="hoverBox"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+let map, rasterOverlay, legend;
+let steps = [];
+let currentData = null;
+
+/* ================= MAP ================= */
+map = L.map("map").setView([23,-102],5);
+
+// Base limpio
+L.tileLayer(
+ "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
+ {attribution:"© OpenStreetMap, © CARTO"}
+).addTo(map);
+
+// Bordes
+L.tileLayer(
+ "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png"
+).addTo(map);
+
+/* ================= LEGEND ================= */
+const LEVELS=[1,30,60,90,120,180,240,360,500,600,700,800,1000];
+const COLORS=[
+ "#ffffff","#ffffff","#fee391","#fec44f","#addd8e","#78c679",
+ "#41ab5d","#238443","#1f78b4","#225ea8","#253494","#54278f","#7a0177"
+];
+
+legend=L.control({position:"bottomright"});
+legend.onAdd=()=>{
+ const d=L.DomUtil.create("div","legend");
+ d.innerHTML=LEVELS.map((v,i)=>`
+  <div class="legend-row">
+   <div class="legend-color" style="background:${COLORS[i]}"></div>
+   ${i===0?"<1":v+"–"+LEVELS[i+1]||">"+v}
+  </div>`).join("");
+ return d;
+};
+legend.addTo(map);
+
+/* ================= COLOR ================= */
+function colorRGBA(v){
+ if(!isFinite(v)||v<1) return [0,0,0,0];
+ for(let i=0;i<LEVELS.length-1;i++){
+  if(v>=LEVELS[i]&&v<LEVELS[i+1]){
+   const c=COLORS[i+1].slice(1);
+   return [
+    parseInt(c.substr(0,2),16),
+    parseInt(c.substr(2,2),16),
+    parseInt(c.substr(4,2),16),
+    220
+   ];
+  }
+ }
+ return [122,1,119,220];
+}
+
+/* ================= DRAW ================= */
+function drawRaster(data){
+ const lat=data.grid.lat;
+ const lon=data.grid.lon.map(l=>l>180?l-360:l);
+ const z=data.grid.data;
+
+ const ny=lat.length, nx=lon.length;
+ const c=document.createElement("canvas");
+ c.width=nx; c.height=ny;
+ const ctx=c.getContext("2d");
+ const img=ctx.createImageData(nx,ny);
+
+ const latInc=lat[1]>lat[0];
+
+ for(let i=0;i<ny;i++){
+  for(let j=0;j<nx;j++){
+   const v=z[i][j];
+   if(v==null) continue;
+   const y=latInc?(ny-1-i):i;
+   const k=(y*nx+j)*4;
+   const r=colorRGBA(v);
+   img.data[k]=r[0];
+   img.data[k+1]=r[1];
+   img.data[k+2]=r[2];
+   img.data[k+3]=r[3];
+  }
+ }
+ ctx.putImageData(img,0,0);
+
+ const dLat=Math.abs(lat[1]-lat[0]);
+ const dLon=Math.abs(lon[1]-lon[0]);
+
+ const bounds=[
+  [lat[0]-dLat/2,lon[0]-dLon/2],
+  [lat[lat.length-1]+dLat/2,lon[lon.length-1]+dLon/2]
+ ];
+
+ if(rasterOverlay) map.removeLayer(rasterOverlay);
+ rasterOverlay=L.imageOverlay(c.toDataURL(),bounds,{opacity:0.85}).addTo(map);
+
+ currentData={img:{width:nx,height:ny,bounds},grid:data.grid};
+}
+
+/* ================= HOVER ================= */
+map.on("mousemove",e=>{
+ if(!currentData) return;
+ const b=currentData.img.bounds;
+ const x=(e.latlng.lng-b.getWest())/(b.getEast()-b.getWest());
+ const y=(b.getNorth()-e.latlng.lat)/(b.getNorth()-b.getSouth());
+ if(x<0||x>1||y<0||y>1) return document.getElementById("hoverBox").style.display="none";
+
+ const fx=x*(currentData.img.width-1);
+ const fy=y*(currentData.img.height-1);
+ const i=Math.round(fy), j=Math.round(fx);
+ const v=currentData.grid.data[i]?.[j];
+ if(!isFinite(v)) return;
+
+ const box=document.getElementById("hoverBox");
+ box.innerHTML=`<b>Lluvia acumulada</b><br>${v.toFixed(1)} mm`;
+ box.style.left=e.originalEvent.pageX+15+"px";
+ box.style.top=e.originalEvent.pageY+15+"px";
+ box.style.display="block";
+});
+
+map.on("mouseout",()=>hoverBox.style.display="none");
+
+/* ================= LOAD ================= */
+fetch("mensual/auto_manifest.json")
+ .then(r=>r.json())
+ .then(m=>{
+  steps=m.files||m;
+  const s=document.getElementById("timeSlider");
+  s.max=steps.length-1;
+  s.oninput=()=>loadStep(s.value);
+  loadStep(0);
+ });
+
+function loadStep(i){
+ document.getElementById("periodLabel").textContent=steps[i];
+ fetch("mensual/"+steps[i]).then(r=>r.json()).then(drawRaster);
+}
+</script>
+
+</body>
+</html>
+

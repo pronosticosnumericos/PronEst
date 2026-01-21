@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Pronóstico NMME – Lluvia acumulada (México)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+html, body {
+  margin:0;
+  padding:0;
+  height:100%;
+  font-family: Arial, sans-serif;
+}
+
+#map {
+  position:absolute;
+  top:0; bottom:0; left:0; right:0;
+  z-index:1;
+}
+
+#topbar{
+  position:absolute;
+  z-index:1000;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(255,255,255,0.95);
+  padding:10px 12px;
+  border-radius:10px;
+  box-shadow:0 0 10px rgba(0,0,0,0.25);
+  font-size:13px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.title{font-weight:700}
+label{font-weight:700}
+select,button,input[type=range]{font-size:13px;padding:3px 6px}
+
+#hoverBox{
+  position:fixed;
+  z-index:2000;
+  background:rgba(255,255,255,0.95);
+  padding:6px 8px;
+  border-radius:6px;
+  box-shadow:0 0 6px rgba(0,0,0,0.3);
+  font-size:11px;
+  pointer-events:none;
+  display:none;
+}
+
+.legend{
+  background:white;
+  padding:8px 10px;
+  font-size:12px;
+  border-radius:8px;
+  box-shadow:0 0 15px rgba(0,0,0,0.3);
+}
+.legend-row{display:flex;align-items:center}
+.legend-color-box{
+  width:16px;
+  height:16px;
+  margin-right:6px;
+  border:1px solid #ccc;
+}
+</style>
+</head>
+
+<body>
+
+<div id="topbar">
+  <span class="title">Pronóstico NMME – México</span>
+
+  <label>Tipo:</label>
+  <select id="typeSelect">
+    <option value="mensual">Mensual</option>
+    <option value="bimestral">Bimestral</option>
+  </select>
+
+  <label>Periodo:</label>
+  <select id="fileSelect" style="min-width:220px"></select>
+
+  <input id="timeSlider" type="range" min="0" max="0" step="1"/>
+  <span id="timeLabel"></span>
+
+  <button id="btnLoad">Ver mapa</button>
+  <span id="status"></span>
+</div>
+
+<div id="map"></div>
+<div id="hoverBox"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+/* ================= CONFIG ================= */
+const VAR_LABEL = "Lluvia acumulada";
+const VAR_UNITS = "mm";
+
+const PRATE_LEVELS = [1,30,60,90,120,180,240,360,500,600,700,800,1000];
+const PRATE_COLORS = [
+  "#ffffff",
+  "#ffffff",
+  "#fee391",
+  "#fec44f",
+  "#addd8e",
+  "#78c679",
+  "#41ab5d",
+  "#238443",
+  "#1f78b4",
+  "#225ea8",
+  "#253494",
+  "#54278f",
+  "#7a0177"
+];
+
+let currentType = "mensual";
+let steps = [];
+let map, rasterOverlay, legend;
+let currentData = null;
+
+/* ================= UTILS ================= */
+function monthNameEs(m){
+  return ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1];
+}
+
+function prettyFromName(f){
+  let m = f.match(/_(\d{6})_(\d{6})/);
+  if (m){
+    return `${monthNameEs(+m[1].slice(4))}–${monthNameEs(+m[2].slice(4))} ${m[1].slice(0,4)}`;
+  }
+  m = f.match(/_(\d{6})/);
+  if (m){
+    return `${monthNameEs(+m[1].slice(4))} ${m[1].slice(0,4)}`;
+  }
+  return f;
+}
+
+function normalizeLon(lon){
+  return (lon > 180) ? lon - 360 : lon;
+}
+
+function hexToRGBA(hex, alpha=255){
+  const c = hex.replace("#","");
+  return [
+    parseInt(c.substring(0,2),16),
+    parseInt(c.substring(2,4),16),
+    parseInt(c.substring(4,6),16),
+    alpha
+  ];
+}
+
+function getColorPrate(v){
+  if (!isFinite(v) || v < 1) return [255,255,255,0];
+  for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
+    if (v >= PRATE_LEVELS[i] && v < PRATE_LEVELS[i+1]){
+      return hexToRGBA(PRATE_COLORS[i+1], 200);
+    }
+  }
+  return hexToRGBA(PRATE_COLORS.at(-1), 200);
+}
+
+/* ================= MAP ================= */
+function initMap(){
+  map = L.map("map").setView([23,-102],5);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    maxZoom:9,
+    attribution:"&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  legend = L.control({ position: "bottomright" });
+  legend.onAdd = () => L.DomUtil.create("div", "legend");
+  legend.addTo(map);
+
+  map.on("mousemove", e => {
+    if (!currentData) return;
+
+    const lat = e.latlng.lat;
+    const lon = normalizeLon(e.latlng.lng);
+    const val = valueAtLatLonBilinear(lat, lon);
+
+    const box = document.getElementById("hoverBox");
+
+    if (val === null){
+      box.style.display = "none";
+      return;
+    }
+
+    box.innerHTML = `
+      <b>${VAR_LABEL}</b><br>
+      Valor: <b>${val.toFixed(1)} ${VAR_UNITS}</b><br>
+      Lat: ${lat.toFixed(2)}°, Lon: ${lon.toFixed(2)}°<br>
+      Periodo: ${steps[+timeSlider.value].label}
+    `;
+
+    box.style.left = (e.originalEvent.pageX + 15) + "px";
+    box.style.top  = (e.originalEvent.pageY + 15) + "px";
+    box.style.display = "block";
+  });
+
+  map.on("mouseout", () => {
+    document.getElementById("hoverBox").style.display = "none";
+  });
+}
+
+/* ================= RASTER ================= */
+function drawRaster(data){
+  const lat = data.grid.lat;
+  const lon = data.grid.lon.map(normalizeLon);
+  const z   = data.grid.data;
+
+  const ny = lat.length;
+  const nx = lon.length;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = nx;
+  canvas.height = ny;
+
+  const ctx = canvas.getContext("2d");
+  const img = ctx.createImageData(nx, ny);
+
+  const latIncreasing = lat[1] > lat[0];
+
+  for(let i=0;i<ny;i++){
+    for(let j=0;j<nx;j++){
+      const v = z[i][j];
+      const rgba = getColorPrate(v);
+      const y = latIncreasing ? (ny - 1 - i) : i;
+      const k = (y * nx + j) * 4;
+      img.data.set(rgba, k);
+    }
+  }
+
+  ctx.putImageData(img,0,0);
+
+  const dLat = Math.abs(lat[1] - lat[0]);
+  const dLon = Math.abs(lon[1] - lon[0]);
+
+  const bounds = [
+    [Math.min(...lat) - dLat/2, Math.min(...lon) - dLon/2],
+    [Math.max(...lat) + dLat/2, Math.max(...lon) + dLon/2]
+  ];
+
+  if (rasterOverlay) map.removeLayer(rasterOverlay);
+  rasterOverlay = L.imageOverlay(canvas.toDataURL(), bounds, {opacity:0.85}).addTo(map);
+
+  currentData._meta = {
+    latMin: Math.min(...lat),
+    latMax: Math.max(...lat),
+    lonMin: Math.min(...lon),
+    lonMax: Math.max(...lon),
+    dLat, dLon, nx, ny
+  };
+}
+
+/* ================= INTERPOLATION ================= */
+function valueAtLatLonBilinear(lat, lon){
+  const g = currentData.grid;
+  const m = currentData._meta;
+
+  if (lat < m.latMin || lat > m.latMax || lon < m.lonMin || lon > m.lonMax) return null;
+
+  let fy = (lat - m.latMin) / m.dLat;
+  if (g.lat[1] > g.lat[0]) fy = (m.ny - 1) - fy;
+  const fx = (lon - m.lonMin) / m.dLon;
+
+  const i0 = Math.floor(fy), j0 = Math.floor(fx);
+  const i1 = i0 + 1, j1 = j0 + 1;
+
+  if (i1 >= m.ny || j1 >= m.nx) return null;
+
+  const q11 = g.data[i0][j0], q21 = g.data[i0][j1];
+  const q12 = g.data[i1][j0], q22 = g.data[i1][j1];
+
+  if ([q11,q21,q12,q22].some(v => !isFinite(v) || v < 1)) return null;
+
+  const dx = fx - j0, dy = fy - i0;
+
+  return q11*(1-dx)*(1-dy) + q21*dx*(1-dy) + q12*(1-dx)*dy + q22*dx*dy;
+}
+
+/* ================= DATA ================= */
+function loadManifest(){
+  fetch(`${currentType}/auto_manifest.json`)
+    .then(r=>r.json())
+    .then(m=>{
+      steps = (m.files||m).map(f=>({href:f,label:prettyFromName(f)}));
+      fileSelect.innerHTML = steps.map(s=>`<option>${s.label}</option>`).join("");
+      timeSlider.max = steps.length-1;
+      timeSlider.value = 0;
+      loadGrid();
+    });
+}
+
+function loadGrid(){
+  const i = +timeSlider.value;
+  const s = steps[i];
+  timeLabel.textContent = s.label;
+
+  fetch(`${currentType}/${s.href}`)
+    .then(r=>r.json())
+    .then(j=>{
+      currentData = j;
+      drawRaster(j);
+    });
+}
+
+/* ================= EVENTS ================= */
+btnLoad.onclick = loadGrid;
+fileSelect.onchange = () => { timeSlider.value = fileSelect.selectedIndex; loadGrid(); };
+timeSlider.oninput = () => { fileSelect.selectedIndex = timeSlider.value; loadGrid(); };
+typeSelect.onchange = e => { currentType = e.target.value; loadManifest(); };
+
+window.onload = () => { initMap(); loadManifest(); };
+</script>
+
+</body>
+</html>
+

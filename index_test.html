@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Pronóstico NMME – Lluvia acumulada (México)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+html,body{margin:0;padding:0;height:100%;font-family:Arial,sans-serif}
+#map{width:100%;height:100%}
+#topbar{
+  position:absolute;z-index:1000;top:10px;left:50%;
+  transform:translateX(-50%);
+  background:rgba(255,255,255,.95);
+  padding:10px 12px;border-radius:10px;
+  box-shadow:0 0 10px rgba(0,0,0,.25);
+  font-size:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap
+}
+.title{font-weight:700}
+label{font-weight:700}
+select,button,input[type=range]{font-size:13px;padding:3px 6px}
+#hoverBox{
+  position:fixed;z-index:2000;background:rgba(255,255,255,.95);
+  padding:6px 8px;border-radius:6px;
+  box-shadow:0 0 6px rgba(0,0,0,.3);
+  font-size:11px;pointer-events:none;display:none
+}
+.legend{background:#fff;padding:8px 10px;font-size:12px;border-radius:8px}
+.legend-row{display:flex;align-items:center}
+.legend-color-box{width:16px;height:16px;margin-right:6px;border:1px solid #ccc}
+</style>
+</head>
+
+<body>
+<div id="topbar">
+  <span class="title">Pronóstico NMME – México</span>
+
+  <label>Tipo:</label>
+  <select id="typeSelect">
+    <option value="mensual">Mensual</option>
+    <option value="bimestral">Bimestral</option>
+  </select>
+
+  <label>Periodo:</label>
+  <select id="fileSelect" style="min-width:220px"></select>
+
+  <input id="timeSlider" type="range" min="0" max="0" step="1"/>
+  <span id="timeLabel"></span>
+
+  <button id="btnLoad">Ver mapa</button>
+  <span id="status"></span>
+</div>
+
+<div id="map"></div>
+<div id="hoverBox"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const VAR_LABEL="Lluvia acumulada",VAR_UNITS="mm";
+let currentType="mensual",steps=[],map,overlay;
+
+function monthNameEs(m){return["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1]}
+function prettyFromName(f){
+  let m=f.match(/_(\d{6})_(\d{6})/);
+  if(m){
+    let a=m[1],b=m[2];
+    return `${monthNameEs(+a.slice(4))}–${monthNameEs(+b.slice(4))} ${a.slice(0,4)}`;
+  }
+  m=f.match(/_(\d{6})/);
+  if(m)return `${monthNameEs(+m[1].slice(4))} ${m[1].slice(0,4)}`;
+  return f;
+}
+
+function initMap(){
+  map=L.map("map").setView([23,-102],5);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:9}).addTo(map);
+}
+
+function loadManifest(){
+  fetch(`${currentType}/auto_manifest.json`)
+    .then(r=>r.json())
+    .then(m=>{
+      steps=(m.files||m).map(f=>({
+        href:f,
+        label:prettyFromName(f)
+      }));
+      document.getElementById("fileSelect").innerHTML=
+        steps.map(s=>`<option value="${s.href}">${s.label}</option>`).join("");
+      document.getElementById("timeSlider").max=steps.length-1;
+      loadGrid();
+    });
+}
+
+function loadGrid(){
+  const i=+document.getElementById("timeSlider").value;
+  const s=steps[i];
+  document.getElementById("timeLabel").textContent=
+    `${currentType==="mensual"?"Mensual":"Bimestral"} – ${s.label}`;
+  fetch(`${currentType}/${s.href}`).then(r=>r.json()).then(drawRaster);
+}
+
+function drawRaster(data){
+  const lat=data.grid.lat,lon=data.grid.lon,z=data.grid.data;
+  const ny=lat.length,nx=lon.length;
+  const c=document.createElement("canvas");
+  c.width=nx;c.height=ny;
+  const ctx=c.getContext("2d"),img=ctx.createImageData(nx,ny);
+  for(let i=0;i<ny;i++)for(let j=0;j<nx;j++){
+    const v=z[i][j];if(v==null)continue;
+    const k=((ny-1-i)*nx+j)*4;
+    img.data[k]=0;img.data[k+1]=100;img.data[k+2]=255;img.data[k+3]=150;
+  }
+  ctx.putImageData(img,0,0);
+  if(overlay)map.removeLayer(overlay);
+  overlay=L.imageOverlay(c.to
+

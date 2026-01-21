@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Pronóstico NMME – Lluvia acumulada (México)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <style>
+    html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
+    #map { width:100%; height:100%; }
+
+    #topbar{
+      position:absolute; z-index:1000; top:10px; left:50%; transform:translateX(-50%);
+      background: rgba(255,255,255,0.95);
+      padding: 10px 12px; border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.25);
+      font-size: 13px;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      max-width: calc(100% - 24px);
+    }
+    #topbar .title { font-weight: 700; }
+    #topbar label { font-weight: 700; }
+    #topbar select, #topbar button, #topbar input[type="range"] { padding: 3px 6px; font-size: 13px; }
+    #status { font-style: italic; color:#555; }
+    .chip{
+      display:inline-flex; align-items:center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f0f0f0;
+      font-size: 12px;
+      gap: 6px;
+    }
+    .muted { color:#666; }
+    a.smalllink { font-size: 12px; color:#0b57d0; text-decoration:none; }
+    a.smalllink:hover { text-decoration:underline; }
+
+    .legend{
+      background-color: white;
+      padding: 8px 10px;
+      font: 12px/14px Arial, Helvetica, sans-serif;
+      box-shadow: 0 0 15px rgba(0,0,0,0.3);
+      border-radius: 8px;
+      line-height: 1.35;
+      max-width: 240px;
+    }
+    .legend-row { display:flex; align-items:center; margin-bottom:3px; }
+    .legend-color-box { width:16px; height:16px; margin-right:6px; border:1px solid #ccc; }
+
+    #hoverBox{
+      position:fixed; z-index:2000;
+      background: rgba(255,255,255,0.95);
+      padding: 6px 8px; border-radius: 6px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.3);
+      font-size: 11px;
+      pointer-events:none;
+      display:none;
+      max-width: 260px;
+      line-height: 1.3;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="topbar">
+    <span class="title">Pronóstico NMME – México</span>
+
+    <span class="chip" title="Cantidad de mapas disponibles (JSON)">
+      <span class="muted">Mapas:</span>
+      <span id="catalogBadge">cargando…</span>
+    </span>
+
+    <span class="chip" title="Producto mostrado">
+      <span class="muted">Indicador:</span>
+      <span><b>Lluvia acumulada</b></span>
+    </span>
+
+    <label for="fileSelect">Periodo:</label>
+    <select id="fileSelect" style="min-width: 260px;"></select>
+
+    <label for="timeSlider">Navegar:</label>
+    <input id="timeSlider" type="range" min="0" max="0" step="1" value="0" />
+    <span id="timeLabel" style="min-width:140px; text-align:center;"></span>
+
+    <button id="btnLoad" title="Cargar el mapa seleccionado">Ver mapa</button>
+
+    <a id="downloadJson" class="smalllink" href="#" download style="display:none;">Descargar datos (JSON)</a>
+
+    <span id="status"></span>
+  </div>
+
+  <div id="map"></div>
+  <div id="hoverBox"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // ============================================================
+    // CONFIG
+    // ============================================================
+    const VAR_ID = "prate";
+    const VAR_LABEL = "Lluvia acumulada";
+    const VAR_UNITS = "mm";
+
+    const dataPath = "./"; // misma carpeta que este HTML y los .json
+    const manifestName = (new URLSearchParams(location.search)).get("manifest") || "auto_manifest.json";
+
+    // Archivos que esperamos (ejemplos reales que nos compartiste):
+    // - NMME_prate_bim_202601_202602.json
+    // - NMME_prate_bim_202603_202604.json
+    // - NMME_prate_bim_202605_202606.json
+    const reBim = /(?:^|\/).*?prate.*?_bim_(\d{6})_(\d{6})\.json$/i;
+    const reMonthly = /(?:^|\/).*?prate.*?_(\d{6})\.json$/i;
+
+    function monthNameEs(m){
+      const names = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+      return names[m-1] || `M${m}`;
+    }
+
+    function periodLabelFromYYYYMM(yyyymm){
+      const y = +yyyymm.slice(0,4);
+      const m = +yyyymm.slice(4,6);
+      return `${monthNameEs(m)} ${y}`;
+    }
+
+    function prettyFromFilename(pathOrName){
+      const name = (pathOrName || "").split("/").pop();
+
+      let m = (pathOrName || "").match(reBim);
+      if (m){
+        const a = m[1], b = m[2];
+        const y1 = +a.slice(0,4), mo1 = +a.slice(4,6);
+        const y2 = +b.slice(0,4), mo2 = +b.slice(4,6);
+        const per = (y1 === y2)
+          ? `${monthNameEs(mo1)}–${monthNameEs(mo2)} ${y1}`
+          : `${monthNameEs(mo1)} ${y1} – ${monthNameEs(mo2)} ${y2}`;
+        return {
+          filename: name,
+          start: a, end: b,
+          sortKey: a,
+          period: per,
+          pretty: `${per}`,
+          kind: "bim"
+        };
+      }
+
+      m = (pathOrName || "").match(reMonthly);
+      if (m){
+        const a = m[1];
+        const per = periodLabelFromYYYYMM(a);
+        return {
+          filename: name,
+          start: a, end: a,
+          sortKey: a,
+          period: per,
+          pretty: `${per}`,
+          kind: "mensual"
+        };
+      }
+
+      return {
+        filename: name || String(pathOrName || ""),
+        start: "", end: "",
+        sortKey: name || "",
+        period: name || "",
+        pretty: name || "",
+        kind: ""
+      };
+    }
+
+    function setStatus(msg){ document.getElementById("status").textContent = msg || ""; }
+    function setCatalogBadge(text){ document.getElementById("catalogBadge").textContent = text; }
+
+    // ============================================================
+    // MAPA (Leaflet + imageOverlay desde canvas)
+    // ============================================================
+    let map, rasterOverlay, legend;
+    let currentGrid = null;
+
+    function initMap(){
+      map = L.map('map').setView([23, -102], 5);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 10,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      legend = L.control({ position: 'bottomright' });
+      legend.onAdd = function(){
+        const div = L.DomUtil.create('div', 'legend');
+        div.innerHTML = "Leyenda";
+        return div;
+      };
+      legend.addTo(map);
+
+      map.on('mousemove', onMapMouseMove);
+      map.on('mouseout', () => { document.getElementById('hoverBox').style.display = 'none'; });
+    }
+
+    function updateLegend(html){
+      const div = document.querySelector('.legend');
+      if (div) div.innerHTML = html;
+    }
+
+    // ============================================================
+    // PALETA (igual a tu versión)
+    // ============================================================
+    const prateLevels = [1, 10, 30, 60, 90, 120, 150, 180, 240, 300, 500, 800];
+    const prateColors = [
+      "#ffffff", "#fff7bc", "#fee391", "#fec44f",
+      "#addd8e", "#78c679", "#41ab5d", "#238443",
+      "#1f78b4", "#225ea8", "#253494", "#7b3294"
+    ];
+
+    function getColorPrate(v){
+      if (!isFinite(v)) return "rgba(0,0,0,0)";
+      if (v < prateLevels[0]) return prateColors[0];
+      for (let i=0; i<prateLevels.length-1; i++){
+        if (v >= prateLevels[i] && v < prateLevels[i+1]) return prateColors[i+1];
+      }
+      return prateColors[prateColors.length - 1];
+    }
+
+    function parseRGB(cssColor){
+      if (cssColor.startsWith("rgb")){
+        const nums = cssColor.replace(/[rgba()]/g, "").split(",").map(Number);
+        if (nums.length === 3) return [nums[0], nums[1], nums[2], 255];
+        return [nums[0], nums[1], nums[2], Math.round(nums[3] * 255)];
+      }
+      if (cssColor[0] === "#"){
+        let c = cssColor.substring(1);
+        if (c.length === 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+        const r = parseInt(c.substring(0,2),16);
+        const g = parseInt(c.substring(2,4),16);
+        const b = parseInt(c.substring(4,6),16);
+        return [r,g,b,255];
+      }
+      return [0,0,0,0];
+    }
+
+    function buildLegendHtml(periodLabel){
+      let html = `<b>${VAR_LABEL}</b><br>`;
+      html += `Periodo: ${periodLabel}<br>`;
+      html += `Rangos [${VAR_UNITS}]:<br>`;
+      html += '<div class="legend-row"><div class="legend-color-box" style="background:#ffffff;"></div><span>&lt; 1</span></div>';
+      for (let i=0; i<prateLevels.length-1; i++){
+        html += '<div class="legend-row">' +
+                '<div class="legend-color-box" style="background:' + prateColors[i+1] + ';"></div>' +
+                '<span>' + prateLevels[i] + ' – ' + prateLevels[i+1] + '</span>' +
+                '</div>';
+      }
+      html += '<div class="legend-row"><div class="legend-color-box" style="background:' +
+              prateColors[prateColors.length-1] +
+              ';"></div><span>&gt;= ' + prateLevels[prateLevels.length-1] + '</span></div>';
+      return html;
+    }
+
+    // BBOX aprox México
+    const mexicoBBox = { minLat: 14, maxLat: 33, minLon: -118, maxLon: -86 };
+
+    function renderRaster(data, stepInfo){
+      const lat = data.grid.lat;
+      const lon = data.grid.lon;
+      const field = data.grid.data;
+
+      const ny = lat.length;
+      const nx = lon.length;
+
+      // máscara México
+      const masked = new Array(ny);
+      for (let i=0; i<ny; i++) masked[i] = new Array(nx);
+
+      for (let i=0; i<ny; i++){
+        for (let j=0; j<nx; j++){
+          let val = field[i][j];
+          const la = lat[i];
+          const lo = lon[j];
+
+          const inMx = (la >= mexicoBBox.minLat && la <= mexicoBBox.maxLat &&
+                        lo >= mexicoBBox.minLon && lo <= mexicoBBox.maxLon);
+
+          if (!inMx) val = null;
+          if (val === null || !isFinite(val) || val <= 0) val = null; // lluvia: ocultar 0 y NaN
+
+          masked[i][j] = val;
+        }
+      }
+
+      // canvas
+      const canvas = document.createElement("canvas");
+      canvas.width = nx;
+      canvas.height = ny;
+
+      const ctx = canvas.getContext("2d");
+      const img = ctx.createImageData(nx, ny);
+      const arr = img.data;
+
+      const increasingLat = lat[0] < lat[lat.length-1];
+
+      for (let i=0; i<ny; i++){
+        for (let j=0; j<nx; j++){
+          const val = masked[i][j];
+          const color = (val === null) ? [0,0,0,0] : parseRGB(getColorPrate(val));
+
+          const x = j;
+          const ypix = increasingLat ? (ny - 1 - i) : i;
+          const idx = (ypix * nx + x) * 4;
+
+          arr[idx]   = color[0];
+          arr[idx+1] = color[1];
+          arr[idx+2] = color[2];
+          arr[idx+3] = color[3];
+        }
+      }
+
+      ctx.putImageData(img, 0, 0);
+
+      const minLat = Math.min.apply(null, lat);
+      const maxLat = Math.max.apply(null, lat);
+      const minLon = Math.min.apply(null, lon);
+      const maxLon = Math.max.apply(null, lon);
+      const bounds = [[minLat, minLon], [maxLat, maxLon]];
+
+      if (rasterOverlay) map.removeLayer(rasterOverlay);
+      rasterOverlay = L.imageOverlay(canvas.toDataURL(), bounds, { opacity: 0.82 }).addTo(map);
+
+      updateLegend(buildLegendHtml(stepInfo.period));
+
+      currentGrid = {
+        lat, lon, field: masked,
+        units: VAR_UNITS,
+        period: stepInfo.period,
+        filename: stepInfo.filename,
+        minLat: mexicoBBox.minLat,
+        maxLat: mexicoBBox.maxLat,
+        minLon: mexicoBBox.minLon,
+        maxLon: mexicoBBox.maxLon
+      };
+    }
+
+    // Tooltip con valor
+    function onMapMouseMove(e){
+      if (!currentGrid) return;
+
+      const hb = document.getElementById("hoverBox");
+      const g = currentGrid;
+      const lat0 = e.latlng.lat;
+      const lon0 = e.latlng.lng;
+
+      if (lat0 < g.minLat || lat0 > g.maxLat || lon0 < g.minLon || lon0 > g.maxLon){
+        hb.style.display = "none";
+        return;
+      }
+
+      let iC=0, jC=0, dLat=Infinity, dLon=Infinity;
+
+      for (let i=0; i<g.lat.length; i++){
+        const d = Math.abs(g.lat[i] - lat0);
+        if (d < dLat){ dLat = d; iC = i; }
+      }
+      for (let j=0; j<g.lon.length; j++){
+        const d = Math.abs(g.lon[j] - lon0);
+        if (d < dLon){ dLon = d; jC = j; }
+      }
+
+      const val = g.field[iC][jC];
+      if (val === null || !isFinite(val)){ hb.style.display = "none"; return; }
+
+      hb.innerHTML =
+        `<b>${VAR_LABEL}</b><br>` +
+        `Valor: ${val.toFixed(1)} ${g.units}<br>` +
+        `Lat: ${g.lat[iC].toFixed(2)}°, Lon: ${g.lon[jC].toFixed(2)}°<br>` +
+        `Periodo: ${g.period}`;
+
+      hb.style.left = (e.originalEvent.clientX + 12) + "px";
+      hb.style.top  = (e.originalEvent.clientY + 12) + "px";
+      hb.style.display = "block";
+    }
+
+    // ============================================================
+    // CATÁLOGO (manifiesto)
+    // ============================================================
+    let steps = []; // [{filename, href, period, sortKey, kind}]
+
+    function normalizeManifestPayload(payload){
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.files)) return payload.files;
+      return [];
+    }
+
+    function parseSteps(files){
+      const out = [];
+
+      for (const f of files){
+        const fname = (typeof f === "string") ? f : (f && (f.filename || f.file || f.name || f.path));
+        if (!fname) continue;
+
+        // Solo lluvia (y solo JSON)
+        if (!/prate/i.test(fname) || !/\.json$/i.test(fname)) continue;
+
+        const meta = prettyFromFilename(fname);
+        // si no pudo parsear periodo, aún lo mostramos (fallback)
+        out.push({
+          filename: meta.filename,
+          href: fname,
+          period: meta.period || meta.pretty || meta.filename,
+          sortKey: meta.sortKey || meta.filename,
+          kind: meta.kind || ""
+        });
+      }
+
+      out.sort((a,b) => (a.sortKey < b.sortKey ? -1 : (a.sortKey > b.sortKey ? 1 : 0)));
+      return out;
+    }
+
+    function refreshUI(){
+      const fileSel = document.getElementById("fileSelect");
+      fileSel.innerHTML = "";
+
+      for (const s of steps){
+        const opt = document.createElement("option");
+        opt.value = s.href;
+        // Texto amigable al público:
+        opt.textContent = s.period;
+        fileSel.appendChild(opt);
+      }
+
+      const slider = document.getElementById("timeSlider");
+      slider.min = 0;
+      slider.max = Math.max(0, steps.length - 1);
+      slider.value = 0;
+
+      updateTimeLabel();
+      updateDownloadLink();
+    }
+
+    function updateTimeLabel(){
+      const idx = parseInt(document.getElementById("timeSlider").value, 10) || 0;
+      const s = steps[idx];
+      document.getElementById("timeLabel").textContent = s ? s.period : "—";
+      if (s) document.getElementById("fileSelect").value = s.href;
+    }
+
+    function updateDownloadLink(){
+      const dl = document.getElementById("downloadJson");
+      const href = document.getElementById("fileSelect").value;
+      if (!href){ dl.style.display = "none"; return; }
+      dl.href = dataPath + href;
+      dl.download = href.split("/").pop();
+      dl.style.display = "inline";
+    }
+
+    function getSelectedStep(){
+      const href = document.getElementById("fileSelect").value;
+      return steps.find(s => s.href === href) || null;
+    }
+
+    function loadGrid(){
+      const s = getSelectedStep();
+      if (!s){
+        setStatus("No hay archivo seleccionado.");
+        updateLegend("No hay archivo seleccionado.");
+        currentGrid = null;
+        return;
+      }
+
+      const url = dataPath + s.href;
+      setStatus("Cargando mapa…");
+
+      fetch(url)
+        .then(resp => {
+          if (!resp.ok) throw new Error("No se pudo cargar: " + url);
+          return resp.json();
+        })
+        .then(data => {
+          setStatus(`OK · Fuente: ${s.filename}`);
+          renderRaster(data, s);
+        })
+        .catch(err => {
+          console.error(err);
+          setStatus("Error: " + err.message);
+          updateLegend("Error al cargar datos.");
+          currentGrid = null;
+        });
+    }
+
+    function initCatalog(){
+      setCatalogBadge("cargando…");
+      const manifestUrl = dataPath + manifestName;
+
+      fetch(manifestUrl, { cache: "no-store" })
+        .then(resp => {
+          if (!resp.ok) throw new Error("No se pudo cargar el catálogo: " + manifestUrl);
+          return resp.json();
+        })
+        .then(payload => {
+          const files = normalizeManifestPayload(payload);
+          steps = parseSteps(files);
+
+          setCatalogBadge(steps.length + " archivos");
+
+          if (!steps.length){
+            setStatus("Catálogo OK, pero no encontré archivos de lluvia (prate).");
+            updateLegend("Sin archivos de lluvia en el catálogo.");
+            return;
+          }
+
+          refreshUI();
+          loadGrid();
+        })
+        .catch(err => {
+          console.error(err);
+          setCatalogBadge("sin catálogo");
+          setStatus("No se pudo cargar " + manifestUrl + ". Asegura auto_manifest.json en la misma carpeta.");
+          updateLegend("Falta catálogo (auto_manifest.json).");
+        });
+    }
+
+    // ============================================================
+    // EVENTOS
+    // ============================================================
+    document.getElementById("btnLoad").addEventListener("click", () => {
+      updateDownloadLink();
+      loadGrid();
+    });
+
+    document.getElementById("timeSlider").addEventListener("input", () => {
+      updateTimeLabel();
+      updateDownloadLink();
+    });
+
+    document.getElementById("timeSlider").addEventListener("change", () => {
+      loadGrid();
+    });
+
+    document.getElementById("fileSelect").addEventListener("change", () => {
+      const href = document.getElementById("fileSelect").value;
+      const idx = steps.findIndex(s => s.href === href);
+      if (idx >= 0) document.getElementById("timeSlider").value = idx;
+      updateTimeLabel();
+      updateDownloadLink();
+      loadGrid();
+    });
+
+    window.addEventListener("load", () => {
+      initMap();
+      initCatalog();
+    });
+  </script>
+</body>
+</html>
