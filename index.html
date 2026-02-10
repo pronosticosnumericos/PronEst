@@ -126,7 +126,6 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
   .period-container select{ width: 100%; }
 
   #hoverBox{ font-size: 10px; }
-
   .legend{ font-size: 11px; padding: 8px 8px; }
 }
 </style>
@@ -280,6 +279,20 @@ let mxCountryLayer = null;
 const STATE_LINE_WEIGHT   = 1.0; // estados
 const COUNTRY_LINE_WEIGHT = 1.5; // borde nacional solicitado
 
+function corsSafeGeoJSONUrl(url){
+  // geoBoundaries a veces devuelve links tipo:
+  // https://github.com/wmgeolab/geoBoundaries/raw/<sha>/releaseData/...
+  // Eso falla por CORS. Convertimos a raw.githubusercontent.com (sí permite CORS).
+  if (url.startsWith("https://github.com/")){
+    // raw/
+    let u = url.replace("https://github.com/", "https://raw.githubusercontent.com/");
+    u = u.replace("/raw/", "/");   // owner/repo/<sha>/...
+    u = u.replace("/blob/", "/");  // por si alguna vez viene blob
+    return u;
+  }
+  return url;
+}
+
 async function fetchGeoBoundariesGeoJSON(apiUrl) {
   const metaRes = await fetch(apiUrl, { cache: "no-store" });
   if (!metaRes.ok) throw new Error(`No pude leer geoBoundaries API: ${apiUrl}`);
@@ -287,8 +300,10 @@ async function fetchGeoBoundariesGeoJSON(apiUrl) {
   const meta = await metaRes.json();
   const obj = Array.isArray(meta) ? meta[0] : meta;
 
-  const gjUrl = obj.gjDownloadURL || obj.gjDownloadUrl || obj.gjdownloadURL;
-  if (!gjUrl) throw new Error(`No encontré gjDownloadURL en respuesta de: ${apiUrl}`);
+  const gjUrlRaw = obj.gjDownloadURL || obj.gjDownloadUrl || obj.gjdownloadURL;
+  if (!gjUrlRaw) throw new Error(`No encontré gjDownloadURL en respuesta de: ${apiUrl}`);
+
+  const gjUrl = corsSafeGeoJSONUrl(gjUrlRaw);
 
   const gjRes = await fetch(gjUrl, { cache: "no-store" });
   if (!gjRes.ok) throw new Error(`No pude descargar GeoJSON: ${gjUrl}`);
@@ -333,7 +348,6 @@ function setupCollapsibles(){
   const menuBody  = document.getElementById("menuBody");
   const menuBtn   = document.getElementById("menuToggleBtn");
 
-  // Evitar que el panel capture drag/scroll del mapa
   if (menuPanel){
     L.DomEvent.disableClickPropagation(menuPanel);
     L.DomEvent.disableScrollPropagation(menuPanel);
@@ -341,7 +355,6 @@ function setupCollapsibles(){
 
   const isMobile = window.matchMedia && window.matchMedia("(max-width: 600px)").matches;
 
-  // Panel colapsado por defecto en móvil
   if (isMobile){
     menuBody.classList.add("is-collapsed");
     menuBtn.textContent = "☰";
@@ -352,7 +365,6 @@ function setupCollapsibles(){
     menuBtn.textContent = collapsed ? "☰" : "✕";
   });
 
-  // Leyenda colapsable
   const legendEl = document.querySelector(".legend");
   if (!legendEl) return;
 
@@ -372,7 +384,7 @@ function setupCollapsibles(){
   }
 }
 
-/* ================= COLORS (placeholder; punto 7 lo ajustamos luego) ================= */
+/* ================= COLORS (placeholder) ================= */
 const PRATE_LEVELS = [1,30,60,90,120,180,240,360,500,600,700,800,1000];
 const PRATE_COLORS = [
   "#ffffff", "#ffffff", "#fee391", "#fec44f", "#addd8e", "#78c679",
@@ -402,7 +414,6 @@ function getColorPrate(v){
 function buildLegendHTML(periodLabel){
   let html = `<b>${VAR_LABEL} (${VAR_UNITS})</b><br>`;
   html += `<span style="font-size:11px">${periodLabel}</span><br><br>`;
-
   for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
     html += `
       <div class="legend-row">
@@ -411,7 +422,6 @@ function buildLegendHTML(periodLabel){
       </div>
     `;
   }
-
   html += `
     <div class="legend-row">
       <div class="legend-color-box" style="background:${PRATE_COLORS[PRATE_COLORS.length-1]}"></div>
@@ -510,10 +520,8 @@ function loadManifest(){
     .then(r => r.json())
     .then(m => {
       steps = m.files || m;
-
       const sel = document.getElementById("periodSelect");
       sel.innerHTML = steps.map(f => `<option value="${f}">${prettyFromName(f)}</option>`).join("");
-
       loadGrid();
     })
     .catch(err => console.error("[manifest]", err));
@@ -549,8 +557,8 @@ document.getElementById("periodSelect").onchange = loadGrid;
 window.onload = ()=>{
   initMap();
   loadManifest();
-  loadMexicoBoundaries();  // Punto 1 completo
-  setupCollapsibles();     // Punto 2 completo
+  loadMexicoBoundaries();  // Punto 1 (ya sin CORS)
+  setupCollapsibles();     // Punto 2
 };
 </script>
 
