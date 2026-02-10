@@ -191,7 +191,8 @@ function monthNameEs(m){
   return ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1];
 }
 function prettyFromName(f){
-  let m = f.match(/_(\\d{6})_(\\d{6})/);
+  //let m = f.match(/_(\\d{6})_(\\d{6})/);
+  let m = f.match(/_(\d{6})_(\d{6})/);
   if (m) return `${monthNameEs(+m[1].slice(4))}–${monthNameEs(+m[2].slice(4))} ${m[1].slice(0,4)}`;
   m = f.match(/_(\\d{6})/);
   if (m) return `${monthNameEs(+m[1].slice(4))} ${m[1].slice(0,4)}`;
@@ -423,7 +424,8 @@ function sortLonAndReorderZ(lon, z){
   const lonSorted = idx.map(i => lon[i]);
   const zSorted = z.map(row => idx.map(j => row[j]));
   return { lon: lonSorted, z: zSorted };
-
+}
+  
 function drawRaster(data){
   let lat = data.grid.lat.slice();              // [ny]
   let lon = data.grid.lon.map(normalizeLon);    // [nx]
