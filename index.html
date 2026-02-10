@@ -81,7 +81,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 .legend{
   background:white; padding:10px 10px; font-size:12px; border-radius:10px;
   box-shadow:0 0 15px rgba(0,0,0,0.3);
-  min-width: 160px;
+  min-width: 170px;
 }
 .legend-header{
   display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;
@@ -118,7 +118,6 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 
   .menu-title{ font-size: 14px; }
   .menu-subtitle{ font-size: 11px; }
-
   #menuToggleBtn{ display:inline-flex; align-items:center; justify-content:center; }
 
   .menu-controls{ flex-direction: column; align-items: stretch; gap:10px; }
@@ -192,16 +191,16 @@ function monthNameEs(m){
   return ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1];
 }
 function prettyFromName(f){
-  let m = f.match(/_(\d{6})_(\d{6})/);
+  let m = f.match(/_(\\d{6})_(\\d{6})/);
   if (m) return `${monthNameEs(+m[1].slice(4))}–${monthNameEs(+m[2].slice(4))} ${m[1].slice(0,4)}`;
-  m = f.match(/_(\d{6})/);
+  m = f.match(/_(\\d{6})/);
   if (m) return `${monthNameEs(+m[1].slice(4))} ${m[1].slice(0,4)}`;
   return f;
 }
 
 /* ================= MAP ================= */
 function initMap(){
-  map = L.map("map", { zoomControl: true }).setView([23,-102],5);
+  map = L.map("map", { zoomControl: true, minZoom: 4, maxZoom: 10 }).setView([23,-102],5);
 
   L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
@@ -269,121 +268,34 @@ function initMap(){
   });
 }
 
-/* ================= Punto 1: México + estados (geoBoundaries API, Ruta 1 real) ================= */
-const GB_API_ADM0 = "https://www.geoboundaries.org/api/current/gbOpen/MEX/ADM0/";
-const GB_API_ADM1 = "https://www.geoboundaries.org/api/current/gbOpen/MEX/ADM1/";
+/* ================= Punto 1: México + estados + borde nacional 1.5px + limitar vista =================
+   Nota: usamos GeoJSON públicos (NO Git LFS) para evitar el error "version https://git-lfs..." y CORS.
+*/
+const URL_MX_STATES  = "https://raw.githubusercontent.com/strotgen/mexico-leaflet/master/states.geojson";
+const URL_MX_COUNTRY = "https://raw.githubusercontent.com/johan/world.geo.json/master/countries/MEX.geo.json";
 
 let mxStatesLayer = null;
 let mxCountryLayer = null;
 
-const STATE_LINE_WEIGHT   = 1.0; // estados
-const COUNTRY_LINE_WEIGHT = 1.5; // borde nacional solicitado
-
-function toRawGitHub(url){
-  // github.com/wmgeolab/geoBoundaries/raw/<sha>/path/file.geojson
-  // -> raw.githubusercontent.com/wmgeolab/geoBoundaries/<sha>/path/file.geojson
-  if (!url) return url;
-  if (url.startsWith("https://github.com/")){
-    let u = url.replace("https://github.com/", "https://raw.githubusercontent.com/");
-    u = u.replace("/raw/", "/");
-    u = u.replace("/blob/", "/");
-    return u;
-  }
-  return url;
-}
-
-function toJsDelivr(url){
-  // github.com/<org>/<repo>/raw/<sha>/path/file.geojson
-  // -> https://cdn.jsdelivr.net/gh/<org>/<repo>@<sha>/path/file.geojson
-  if (!url) return url;
-
-  // Caso github.com/.../raw/...
-  const m1 = url.match(/^https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/raw\/([^\/]+)\/(.+)$/);
-  if (m1){
-    const org = m1[1], repo = m1[2], sha = m1[3], path = m1[4];
-    return `https://cdn.jsdelivr.net/gh/${org}/${repo}@${sha}/${path}`;
-  }
-
-  // Caso raw.githubusercontent.com/<org>/<repo>/<sha>/path
-  const m2 = url.match(/^https:\/\/raw\.githubusercontent\.com\/([^\/]+)\/([^\/]+)\/([^\/]+)\/(.+)$/);
-  if (m2){
-    const org = m2[1], repo = m2[2], sha = m2[3], path = m2[4];
-    return `https://cdn.jsdelivr.net/gh/${org}/${repo}@${sha}/${path}`;
-  }
-
-  return url;
-}
+const STATE_LINE_WEIGHT   = 1.0;
+const COUNTRY_LINE_WEIGHT = 1.5;
 
 async function fetchJsonSafe(url){
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "force-cache" });
   const txt = await res.text();
-
-  if (!res.ok){
-    throw new Error(`HTTP ${res.status} al descargar: ${url}\nRespuesta: ${txt.slice(0,120)}`);
-  }
-
-  // Validación ligera: JSON suele iniciar con { o [
+  if (!res.ok) throw new Error(`HTTP ${res.status} al descargar: ${url}`);
   const t = txt.trim();
   if (!(t.startsWith("{") || t.startsWith("["))){
-    throw new Error(`No parece JSON: ${url}\nInicio: ${t.slice(0,120)}`);
+    throw new Error(`No parece JSON: ${url}\\nInicio: ${t.slice(0,120)}`);
   }
-
   return JSON.parse(t);
 }
-
-async function fetchGeoBoundariesGeoJSON(apiUrl) {
-  // 1) Leer metadata (esto sí es JSON desde geoboundaries.org)
-  const metaRes = await fetch(apiUrl, { cache: "no-store" });
-  if (!metaRes.ok) throw new Error(`No pude leer geoBoundaries API: ${apiUrl}`);
-
-  const meta = await metaRes.json();
-  const obj = Array.isArray(meta) ? meta[0] : meta;
-
-  // 2) IMPORTANTE:
-  // Usamos primero simplifiedGeometryGeoJSON (menos pesado + más estable en CDN)
-  const preferred = obj.simplifiedGeometryGeoJSON || obj.gjDownloadURL;
-  if (!preferred){
-    throw new Error(`No encontré simplifiedGeometryGeoJSON ni gjDownloadURL en: ${apiUrl}`);
-  }
-
-  // 3) Intento A: raw.githubusercontent.com
-  const rawUrl = toRawGitHub(preferred);
-
-  try {
-    return await fetchJsonSafe(rawUrl);
-  } catch (e1){
-    console.warn("[geoBoundaries] Falló raw github, intento CDN jsDelivr:", e1.message);
-
-    // 4) Intento B: jsDelivr CDN
-    const cdnUrl = toJsDelivr(preferred);
-
-    try {
-      return await fetchJsonSafe(cdnUrl);
-    } catch (e2){
-      console.error("[geoBoundaries] Falló también jsDelivr:", e2.message);
-
-      // 5) Último fallback: probar la otra URL (si preferred fue simplified, probar full; si fue full, probar simplified)
-      const alt = (preferred === obj.simplifiedGeometryGeoJSON) ? obj.gjDownloadURL : obj.simplifiedGeometryGeoJSON;
-      if (alt){
-        const altRaw = toRawGitHub(alt);
-        try {
-          return await fetchJsonSafe(altRaw);
-        } catch (_) {}
-        const altCdn = toJsDelivr(alt);
-        return await fetchJsonSafe(altCdn);
-      }
-
-      throw e2;
-    }
-  }
-}
-
 
 async function loadMexicoBoundaries(){
   try {
     const [countryGeojson, statesGeojson] = await Promise.all([
-      fetchGeoBoundariesGeoJSON(GB_API_ADM0),
-      fetchGeoBoundariesGeoJSON(GB_API_ADM1),
+      fetchJsonSafe(URL_MX_COUNTRY),
+      fetchJsonSafe(URL_MX_STATES)
     ]);
 
     if (mxStatesLayer) map.removeLayer(mxStatesLayer);
@@ -407,6 +319,7 @@ async function loadMexicoBoundaries(){
     map.setMaxBounds(boundsMx.pad(0.08));
   } catch (err){
     console.error("[Mexico boundaries]", err);
+    alert("No pude cargar límites de México/estados. Revisa tu conexión o las URLs de GeoJSON.");
   }
 }
 
@@ -452,7 +365,7 @@ function setupCollapsibles(){
   }
 }
 
-/* ================= COLORS (placeholder) ================= */
+/* ================= COLORS (placeholder por ahora) ================= */
 const PRATE_LEVELS = [1,30,60,90,120,180,240,360,500,600,700,800,1000];
 const PRATE_COLORS = [
   "#ffffff", "#ffffff", "#fee391", "#fec44f", "#addd8e", "#78c679",
@@ -468,7 +381,6 @@ function hexToRGBA(hex, alpha=255){
     alpha
   ];
 }
-
 function getColorPrate(v){
   if (!isFinite(v) || v < 1) return [255,255,255,0];
   for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
@@ -625,7 +537,7 @@ document.getElementById("periodSelect").onchange = loadGrid;
 window.onload = ()=>{
   initMap();
   loadManifest();
-  loadMexicoBoundaries();  // Punto 1 (ya sin CORS)
+  loadMexicoBoundaries();  // Punto 1
   setupCollapsibles();     // Punto 2
 };
 </script>
