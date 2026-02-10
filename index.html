@@ -498,7 +498,7 @@ function drawRaster(data){
   const lonMax = Math.max(...lon);
 
   const LON_SHIFT_CELLS = 0.0;  // prueba -0.5 (típico). Si aún se va, prueba -1.0
-  const LAT_SHIFT_CELLS = -10.0;   // normalmente 0.0; si ves corrimiento N/S prueba ±0.5
+  const LAT_SHIFT_CELLS = -7.5;   // normalmente 0.0; si ves corrimiento N/S prueba ±0.5
 
   const lonShift = LON_SHIFT_CELLS * dLon;
   const latShift = LAT_SHIFT_CELLS * dLat;
