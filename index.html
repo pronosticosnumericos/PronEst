@@ -461,6 +461,67 @@ function initMap(){
   });
 }
 
+  // ====== Boundaries (Opción A: GeoJSON público) ======
+
+// 1) Estados (ADM1) - ejemplo: open-mexico (necesitas un geojson "todos los estados en 1 archivo")
+// Si el repo tiene estados por archivo, conviene usar un "all states" o geoBoundaries ADM1.
+const URL_MX_STATES = "PEGAR_AQUI_URL_GEOJSON_ESTADOS";
+
+// 2) México (ADM0) - borde nacional
+const URL_MX_COUNTRY = "PEGAR_AQUI_URL_GEOJSON_MEXICO";
+
+let mxStatesLayer = null;
+let mxCountryLayer = null;
+
+async function loadMexicoBoundaries(){
+  try {
+    const [statesRes, countryRes] = await Promise.all([
+      fetch(URL_MX_STATES),
+      fetch(URL_MX_COUNTRY)
+    ]);
+
+    if (!statesRes.ok) throw new Error("No pude cargar estados (GeoJSON)");
+    if (!countryRes.ok) throw new Error("No pude cargar México (GeoJSON)");
+
+    const statesGeojson = await statesRes.json();
+    const countryGeojson = await countryRes.json();
+
+    // Quitar capas previas si existían
+    if (mxStatesLayer) map.removeLayer(mxStatesLayer);
+    if (mxCountryLayer) map.removeLayer(mxCountryLayer);
+
+    // Estados (línea más delgada)
+    mxStatesLayer = L.geoJSON(statesGeojson, {
+      interactive: false,
+      style: {
+        color: "#2b2b2b",
+        weight: 1.0,
+        opacity: 0.55,
+        fillOpacity: 0
+      }
+    }).addTo(map);
+
+    // México (borde nacional 1.5 px)
+    mxCountryLayer = L.geoJSON(countryGeojson, {
+      interactive: false,
+      style: {
+        color: "#111111",
+        weight: 1.5,
+        opacity: 0.9,
+        fillOpacity: 0
+      }
+    }).addTo(map);
+
+    // Solo vista México
+    const boundsMx = mxCountryLayer.getBounds();
+    map.fitBounds(boundsMx.pad(0.03));
+    map.setMaxBounds(boundsMx.pad(0.08)); // evita "salirse" mucho
+
+  } catch (err){
+    console.error(err);
+  }
+}
+
 
 /* ================= COLORS ================= */
 function getColorPrate(v){
