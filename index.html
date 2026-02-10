@@ -308,13 +308,14 @@ async function loadMexicoBoundaries(){
     }).addTo(map);
 
     // Borde nacional 1.5px
-    mxCountryLayer = L.geoJSON(countryGeojson, {
-      interactive: false,
-      style: { color: "#111111", weight: COUNTRY_LINE_WEIGHT, opacity: 0.9, fillOpacity: 0 }
-    }).addTo(map);
+    //mxCountryLayer = L.geoJSON(countryGeojson, {
+    //  interactive: false,
+    //  style: { color: "#111111", weight: COUNTRY_LINE_WEIGHT, opacity: 0.9, fillOpacity: 0 }
+    //}).addTo(map);
 
     // Limitar vista a México
-    const boundsMx = mxCountryLayer.getBounds();
+    //const boundsMx = mxCountryLayer.getBounds();
+    const boundsMx = mxStatesLayer.getBounds();
     map.fitBounds(boundsMx.pad(0.03));
     map.setMaxBounds(boundsMx.pad(0.08));
   } catch (err){
