@@ -489,20 +489,30 @@ function drawRaster(data){
   }
 
   // 2) Calcular resolución (media celda) robusta
-  //const dLat = (ny > 1) ? Math.abs(lat[1] - lat[0]) : 0.5;
-  //const dLon = (nx > 1) ? Math.abs(lon[1] - lon[0]) : 0.5;
+  const dLat = (ny > 1) ? Math.abs(lat[1] - lat[0]) : 0.5;
+  const dLon = (nx > 1) ? Math.abs(lon[1] - lon[0]) : 0.5;
 
-  //const latMin = Math.min(...lat);
-  //const latMax = Math.max(...lat);
-  //const lonMin = Math.min(...lon);
-  //const lonMax = Math.max(...lon);
+  const latMin = Math.min(...lat);
+  const latMax = Math.max(...lat);
+  const lonMin = Math.min(...lon);
+  const lonMax = Math.max(...lon);
+
+  const LON_SHIFT_CELLS = -0.5;  // prueba -0.5 (típico). Si aún se va, prueba -1.0
+  const LAT_SHIFT_CELLS = 0.0;   // normalmente 0.0; si ves corrimiento N/S prueba ±0.5
+
+  const lonShift = LON_SHIFT_CELLS * dLon;
+  const latShift = LAT_SHIFT_CELLS * dLat;
 
   // bounds por bordes de celda (no por centros)
   //const bounds = [
   //  [latMin - dLat/2, lonMin - dLon/2],  // southWest
   //  [latMax + dLat/2, lonMax + dLon/2]   // northEast
   //];
-  const bounds = computeBoundsFromLatLon(lat, lon);
+  //const bounds = computeBoundsFromLatLon(lat, lon);
+  const bounds = [
+    [latMin - dLat/2 + latShift, lonMin - dLon/2 + lonShift], // SW
+    [latMax + dLat/2 + latShift, lonMax + dLon/2 + lonShift]  // NE
+  ];
 
   // 3) Render (respetar si lat viene asc/desc)
   const latIncreasing = (ny > 1) ? (lat[1] > lat[0]) : true;
