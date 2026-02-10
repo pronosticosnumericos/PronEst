@@ -9,7 +9,6 @@
 
 <style>
 html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
-
 #map { position:absolute; top:80px; bottom:0; left:0; right:0; z-index:1; }
 
 /* ================= HEADER ================= */
@@ -18,47 +17,26 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
   background: #ffffff; display: flex; justify-content: space-between; align-items: center;
   padding: 0 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); z-index: 3000;
 }
-
 .header-left{ display: flex; align-items: center; gap: 14px; }
 .header-left img{ height: 52px; }
-
 .header-text .brand{ font-size: 32px; font-weight: 800; color: #2c6cb0; line-height: 1.1; }
 .header-text .tagline{ font-size: 20px; font-weight: 800; color: #2c6cb0; }
-
 .btn-contacto{
   border: 1px solid #2c6cb0; padding: 8px 14px; border-radius: 6px;
   text-decoration: none; color: #2c6cb0; font-size: 13px; transition: all 0.2s ease;
 }
 .btn-contacto:hover{ background: #2c6cb0; color: white; }
 
-/* ================= MENU PANEL (DESKTOP) ================= */
+/* ================= MENU PANEL ================= */
 #menu-panel{
   position:absolute; top:110px; left:50%; transform:translateX(-50%);
   background:rgba(255,255,255,0.96); padding:14px 18px; border-radius:14px;
   box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:2000; min-width:360px;
 }
+.menu-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.menu-title{ font-size:15px; font-weight:800; color:#1f3b5c; margin:0; }
+.menu-subtitle{ display:block; font-size:12px; font-weight:500; color:#6b7c93; margin-top:2px; }
 
-.menu-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-
-.menu-title{
-  font-size:15px; font-weight:800; color:#1f3b5c;
-  margin:0;
-}
-
-.menu-subtitle{
-  display:block;
-  font-size:12px;
-  font-weight:500;
-  color:#6b7c93;
-  margin-top:2px;
-}
-
-/* Botón colapsar (solo móvil lo mostramos) */
 #menuToggleBtn{
   display:none;
   border:1px solid #cbd5e1;
@@ -69,15 +47,11 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
   line-height:1;
   cursor:pointer;
 }
-
 #menuBody{ margin-top:10px; }
+#menuBody.is-collapsed{ display:none; }
 
-.menu-controls{
-  display:flex; align-items:center; justify-content:space-between; gap:14px;
-}
-
+.menu-controls{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
 .toggle-container{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#333; }
-
 .period-container{ display:flex; align-items:center; gap:6px; }
 .period-container label{ font-size:12px; font-weight:600; color:#444; }
 .period-container select{ font-size:12px; padding:6px 8px; border-radius:8px; border:1px solid #ccc; background:white; }
@@ -110,27 +84,14 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
   min-width: 160px;
 }
 .legend-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
-  margin-bottom:8px;
+  display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;
 }
-.legend-title{
-  font-weight:800;
-  color:#1f3b5c;
-  font-size:12px;
-}
+.legend-title{ font-weight:800; color:#1f3b5c; font-size:12px; }
 .legend-toggle{
-  border:1px solid #cbd5e1;
-  background:white;
-  border-radius:8px;
-  padding:4px 8px;
-  font-size:12px;
-  cursor:pointer;
+  border:1px solid #cbd5e1; background:white; border-radius:8px;
+  padding:4px 8px; font-size:12px; cursor:pointer;
 }
 .legend-body.is-collapsed{ display:none; }
-
 .legend-row{ display:flex; align-items:center; }
 .legend-color-box{ width:16px; height:16px; margin-right:6px; border:1px solid #ccc; border-radius:3px; }
 
@@ -143,10 +104,8 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
   .header-left img{ height: 42px; }
   .header-text .brand{ font-size: 20px; }
   .header-text .tagline{ font-size: 12px; font-weight: 700; }
-
   #map{ top:64px; }
 
-  /* Panel: ancho completo, centrado, más compacto */
   #menu-panel{
     top: 74px;
     left: 10px;
@@ -160,21 +119,14 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
   .menu-title{ font-size: 14px; }
   .menu-subtitle{ font-size: 11px; }
 
-  /* Mostrar botón colapsar en móvil */
   #menuToggleBtn{ display:inline-flex; align-items:center; justify-content:center; }
 
-  /* Cuando colapsa, ocultamos el cuerpo */
-  #menuBody.is-collapsed{ display:none; }
-
-  /* Controles en columna para que no se monten */
   .menu-controls{ flex-direction: column; align-items: stretch; gap:10px; }
   .period-container{ justify-content: space-between; }
   .period-container select{ width: 100%; }
 
-  /* Hover box más pequeño */
   #hoverBox{ font-size: 10px; }
 
-  /* Leyenda: un poco más compacta */
   .legend{ font-size: 11px; padding: 8px 8px; }
 }
 </style>
@@ -189,21 +141,17 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
       <div class="tagline">Información Climática para la Agricultura</div>
     </div>
   </div>
-
   <div class="header-right">
     <a href="https://www.climaproagro.com/contacto" class="btn-contacto">Contacto</a>
   </div>
 </header>
 
-<!-- Panel flotante -->
 <div id="menu-panel">
   <div class="menu-header">
     <div>
       <div class="menu-title">Pronóstico NMME – Lluvia acumulada</div>
       <span class="menu-subtitle">México</span>
     </div>
-
-    <!-- Botón colapsable (visible en móvil) -->
     <button id="menuToggleBtn" type="button" aria-label="Mostrar/Ocultar panel">☰</button>
   </div>
 
@@ -233,7 +181,6 @@ canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 
 <script>
 let currentData = null;
-
 const VAR_LABEL = "Lluvia acumulada";
 const VAR_UNITS = "mm";
 
@@ -257,7 +204,6 @@ function prettyFromName(f){
 function initMap(){
   map = L.map("map", { zoomControl: true }).setView([23,-102],5);
 
-  // Base map
   L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
     { attribution: "© OpenStreetMap, © CARTO" }
@@ -278,23 +224,19 @@ function initMap(){
     { opacity: 0.15 }
   ).addTo(map);
 
-  // Leyenda (control Leaflet)
+  // Legend control
   legend = L.control({ position: "bottomright" });
   legend.onAdd = function(){
     const div = L.DomUtil.create("div", "legend");
-
     div.innerHTML = `
       <div class="legend-header">
         <div class="legend-title">Leyenda</div>
-        <button class="legend-toggle" type="button" aria-label="Mostrar/Ocultar leyenda">Ocultar</button>
+        <button class="legend-toggle" type="button">Ocultar</button>
       </div>
       <div class="legend-body">Cargando…</div>
     `;
-
-    // Evitar que el usuario arrastre el mapa al tocar la leyenda
     L.DomEvent.disableClickPropagation(div);
     L.DomEvent.disableScrollPropagation(div);
-
     return div;
   };
   legend.addTo(map);
@@ -318,7 +260,6 @@ function initMap(){
       Lon: ${e.latlng.lng.toFixed(2)}°<br>
       Tipo: ${currentType === "mensual" ? "Mensual" : "Bimestral"}
     `;
-
     box.style.left = (e.originalEvent.pageX + 15) + "px";
     box.style.top  = (e.originalEvent.pageY + 15) + "px";
     box.style.display = "block";
@@ -329,15 +270,15 @@ function initMap(){
   });
 }
 
-/* ================= Punto 1: Boundaries (Ruta 1 real: geoBoundaries API) ================= */
+/* ================= Punto 1: México + estados (geoBoundaries API, Ruta 1 real) ================= */
 const GB_API_ADM0 = "https://www.geoboundaries.org/api/current/gbOpen/MEX/ADM0/";
 const GB_API_ADM1 = "https://www.geoboundaries.org/api/current/gbOpen/MEX/ADM1/";
 
 let mxStatesLayer = null;
 let mxCountryLayer = null;
 
-const STATE_LINE_WEIGHT = 1.0;
-const COUNTRY_LINE_WEIGHT = 1.5;
+const STATE_LINE_WEIGHT   = 1.0; // estados
+const COUNTRY_LINE_WEIGHT = 1.5; // borde nacional solicitado
 
 async function fetchGeoBoundariesGeoJSON(apiUrl) {
   const metaRes = await fetch(apiUrl, { cache: "no-store" });
@@ -365,21 +306,69 @@ async function loadMexicoBoundaries(){
     if (mxStatesLayer) map.removeLayer(mxStatesLayer);
     if (mxCountryLayer) map.removeLayer(mxCountryLayer);
 
+    // Estados
     mxStatesLayer = L.geoJSON(statesGeojson, {
       interactive: false,
       style: { color: "#2b2b2b", weight: STATE_LINE_WEIGHT, opacity: 0.55, fillOpacity: 0 }
     }).addTo(map);
 
+    // Borde nacional 1.5px
     mxCountryLayer = L.geoJSON(countryGeojson, {
       interactive: false,
       style: { color: "#111111", weight: COUNTRY_LINE_WEIGHT, opacity: 0.9, fillOpacity: 0 }
     }).addTo(map);
 
+    // Limitar vista a México
     const boundsMx = mxCountryLayer.getBounds();
     map.fitBounds(boundsMx.pad(0.03));
     map.setMaxBounds(boundsMx.pad(0.08));
   } catch (err){
     console.error("[Mexico boundaries]", err);
+  }
+}
+
+/* ================= Punto 2: Panel colapsable (móvil) + leyenda colapsable ================= */
+function setupCollapsibles(){
+  const menuPanel = document.getElementById("menu-panel");
+  const menuBody  = document.getElementById("menuBody");
+  const menuBtn   = document.getElementById("menuToggleBtn");
+
+  // Evitar que el panel capture drag/scroll del mapa
+  if (menuPanel){
+    L.DomEvent.disableClickPropagation(menuPanel);
+    L.DomEvent.disableScrollPropagation(menuPanel);
+  }
+
+  const isMobile = window.matchMedia && window.matchMedia("(max-width: 600px)").matches;
+
+  // Panel colapsado por defecto en móvil
+  if (isMobile){
+    menuBody.classList.add("is-collapsed");
+    menuBtn.textContent = "☰";
+  }
+
+  menuBtn.addEventListener("click", () => {
+    const collapsed = menuBody.classList.toggle("is-collapsed");
+    menuBtn.textContent = collapsed ? "☰" : "✕";
+  });
+
+  // Leyenda colapsable
+  const legendEl = document.querySelector(".legend");
+  if (!legendEl) return;
+
+  const legendBtn  = legendEl.querySelector(".legend-toggle");
+  const legendBody = legendEl.querySelector(".legend-body");
+
+  if (isMobile && legendBody){
+    legendBody.classList.add("is-collapsed");
+    if (legendBtn) legendBtn.textContent = "Mostrar";
+  }
+
+  if (legendBtn && legendBody){
+    legendBtn.addEventListener("click", () => {
+      const collapsed = legendBody.classList.toggle("is-collapsed");
+      legendBtn.textContent = collapsed ? "Mostrar" : "Ocultar";
+    });
   }
 }
 
@@ -482,11 +471,7 @@ function drawRaster(data){
   rasterOverlay = L.imageOverlay(canvas.toDataURL(), bounds, {opacity:0.85, interactive:false}).addTo(map);
   rasterOverlay.getElement().style.imageRendering = "pixelated";
 
-  currentData._img = {
-    width: nx,
-    height: ny,
-    bounds: rasterOverlay.getBounds()
-  };
+  currentData._img = { width: nx, height: ny, bounds: rasterOverlay.getBounds() };
 }
 
 function valueAtPixel(latlng){
@@ -516,7 +501,6 @@ function valueAtPixel(latlng){
 
   const dx = fx - j0, dy = fy - i0;
   const v = q11*(1-dx)*(1-dy) + q21*dx*(1-dy) + q12*(1-dx)*dy + q22*dx*dy;
-
   return isFinite(v) ? v : null;
 }
 
@@ -526,8 +510,10 @@ function loadManifest(){
     .then(r => r.json())
     .then(m => {
       steps = m.files || m;
+
       const sel = document.getElementById("periodSelect");
       sel.innerHTML = steps.map(f => `<option value="${f}">${prettyFromName(f)}</option>`).join("");
+
       loadGrid();
     })
     .catch(err => console.error("[manifest]", err));
@@ -543,60 +529,14 @@ function loadGrid(){
       currentData = json;
       drawRaster(json);
 
-      // Escribir el cuerpo de la leyenda (no toda la caja)
       const body = document.querySelector(".legend-body");
       if (body){
-        body.innerHTML = buildLegendHTML(`${currentType === "mensual" ? "Mensual" : "Bimestral"} – ${prettyFromName(sel.value)}`);
+        body.innerHTML = buildLegendHTML(
+          `${currentType === "mensual" ? "Mensual" : "Bimestral"} – ${prettyFromName(sel.value)}`
+        );
       }
     })
     .catch(err => console.error("[grid]", err));
-}
-
-/* ================= Punto 2: Panel y leyenda colapsables (móvil) ================= */
-function setupCollapsibles(){
-  const menuPanel = document.getElementById("menu-panel");
-  const menuBody = document.getElementById("menuBody");
-  const menuBtn  = document.getElementById("menuToggleBtn");
-
-  // Evitar que el panel capture scroll/drag del mapa
-  if (menuPanel){
-    L.DomEvent.disableClickPropagation(menuPanel);
-    L.DomEvent.disableScrollPropagation(menuPanel);
-  }
-
-  // Colapsar por defecto en móvil
-  const isMobile = window.matchMedia && window.matchMedia("(max-width: 600px)").matches;
-  if (isMobile){
-    menuBody.classList.add("is-collapsed");
-    menuBtn.textContent = "☰";
-  }
-
-  // Botón panel
-  menuBtn.addEventListener("click", () => {
-    const collapsed = menuBody.classList.toggle("is-collapsed");
-    menuBtn.textContent = collapsed ? "☰" : "✕";
-  });
-
-  // Leyenda colapsable
-  // Esperamos a que Leaflet haya creado el control (ya está en initMap)
-  const legendEl = document.querySelector(".legend");
-  if (!legendEl) return;
-
-  const legendBtn = legendEl.querySelector(".legend-toggle");
-  const legendBody = legendEl.querySelector(".legend-body");
-
-  // En móvil, la leyenda inicia colapsada para no tapar
-  if (isMobile && legendBody){
-    legendBody.classList.add("is-collapsed");
-    if (legendBtn) legendBtn.textContent = "Mostrar";
-  }
-
-  if (legendBtn && legendBody){
-    legendBtn.addEventListener("click", () => {
-      const collapsed = legendBody.classList.toggle("is-collapsed");
-      legendBtn.textContent = collapsed ? "Mostrar" : "Ocultar";
-    });
-  }
 }
 
 /* ================= EVENTS ================= */
@@ -609,8 +549,8 @@ document.getElementById("periodSelect").onchange = loadGrid;
 window.onload = ()=>{
   initMap();
   loadManifest();
-  loadMexicoBoundaries();
-  setupCollapsibles();
+  loadMexicoBoundaries();  // Punto 1 completo
+  setupCollapsibles();     // Punto 2 completo
 };
 </script>
 
