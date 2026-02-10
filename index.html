@@ -423,14 +423,6 @@ function sortLonAndReorderZ(lon, z){
   return { lon: lonSorted, z: zSorted };
 
 function drawRaster(data){
-  let lat = data.grid.lat;
-  let lon = data.grid.lon.map(normalizeLon);
-  let z   = data.grid.data;
-
-  const ny = lat.length;
-  const nx = lon.length;
-
-function drawRaster(data){
   let lat = data.grid.lat.slice();              // [ny]
   let lon = data.grid.lon.map(normalizeLon);    // [nx]
   let z   = data.grid.data;                     // [ny][nx]
