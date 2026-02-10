@@ -425,6 +425,48 @@ function sortLonAndReorderZ(lon, z){
   const zSorted = z.map(row => idx.map(j => row[j]));
   return { lon: lonSorted, z: zSorted };
 }
+
+function isLikelyCenters(arr){
+  // Heurística: si la extensión (max-min) se parece más a (n*d) => centros
+  //            si se parece más a ((n-1)*d) => esquinas
+  const n = arr.length;
+  if (n < 2) return true;
+
+  const sorted = arr.slice().sort((a,b)=>a-b);
+  const min = sorted[0], max = sorted[n-1];
+  const d = Math.abs(sorted[1] - sorted[0]) || 0;
+
+  const extent = Math.abs(max - min);
+
+  const errCenters = Math.abs(extent - d * n);
+  const errCorners = Math.abs(extent - d * (n - 1));
+
+  return errCenters < errCorners; // true => centros, false => esquinas
+}
+
+function computeBoundsFromLatLon(lat, lon){
+  const ny = lat.length, nx = lon.length;
+  const latSorted = lat.slice().sort((a,b)=>a-b);
+  const lonSorted = lon.slice().sort((a,b)=>a-b);
+
+  const latMin = latSorted[0], latMax = latSorted[ny-1];
+  const lonMin = lonSorted[0], lonMax = lonSorted[nx-1];
+
+  const dLat = (ny > 1) ? Math.abs(latSorted[1] - latSorted[0]) : 0.5;
+  const dLon = (nx > 1) ? Math.abs(lonSorted[1] - lonSorted[0]) : 0.5;
+
+  const latAreCenters = isLikelyCenters(lat);
+  const lonAreCenters = isLikelyCenters(lon);
+
+  const padLat = latAreCenters ? dLat/2 : 0;
+  const padLon = lonAreCenters ? dLon/2 : 0;
+
+  return [
+    [latMin - padLat, lonMin - padLon], // SW
+    [latMax + padLat, lonMax + padLon]  // NE
+  ];
+}
+
   
 function drawRaster(data){
   let lat = data.grid.lat.slice();              // [ny]
@@ -447,19 +489,20 @@ function drawRaster(data){
   }
 
   // 2) Calcular resolución (media celda) robusta
-  const dLat = (ny > 1) ? Math.abs(lat[1] - lat[0]) : 0.5;
-  const dLon = (nx > 1) ? Math.abs(lon[1] - lon[0]) : 0.5;
+  //const dLat = (ny > 1) ? Math.abs(lat[1] - lat[0]) : 0.5;
+  //const dLon = (nx > 1) ? Math.abs(lon[1] - lon[0]) : 0.5;
 
-  const latMin = Math.min(...lat);
-  const latMax = Math.max(...lat);
-  const lonMin = Math.min(...lon);
-  const lonMax = Math.max(...lon);
+  //const latMin = Math.min(...lat);
+  //const latMax = Math.max(...lat);
+  //const lonMin = Math.min(...lon);
+  //const lonMax = Math.max(...lon);
 
   // bounds por bordes de celda (no por centros)
-  const bounds = [
-    [latMin - dLat/2, lonMin - dLon/2],  // southWest
-    [latMax + dLat/2, lonMax + dLon/2]   // northEast
-  ];
+  //const bounds = [
+  //  [latMin - dLat/2, lonMin - dLon/2],  // southWest
+  //  [latMax + dLat/2, lonMax + dLon/2]   // northEast
+  //];
+  const bounds = computeBoundsFromLatLon(lat, lon);
 
   // 3) Render (respetar si lat viene asc/desc)
   const latIncreasing = (ny > 1) ? (lat[1] > lat[0]) : true;
