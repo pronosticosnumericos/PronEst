@@ -415,22 +415,64 @@ function buildLegendHTML(periodLabel){
 /* ================= RENDER ================= */
 function normalizeLon(lon){ return (lon > 180) ? lon - 360 : lon; }
 
+function sortLonAndReorderZ(lon, z){
+  // lon: [nx], z: [ny][nx]
+  const idx = lon.map((v, i) => [v, i]).sort((a,b) => a[0]-b[0]).map(p => p[1]);
+  const lonSorted = idx.map(i => lon[i]);
+  const zSorted = z.map(row => idx.map(j => row[j]));
+  return { lon: lonSorted, z: zSorted };
+
 function drawRaster(data){
-  const lat = data.grid.lat;
-  const lon = data.grid.lon.map(normalizeLon);
-  const z   = data.grid.data;
+  let lat = data.grid.lat;
+  let lon = data.grid.lon.map(normalizeLon);
+  let z   = data.grid.data;
 
   const ny = lat.length;
   const nx = lon.length;
 
+function drawRaster(data){
+  let lat = data.grid.lat.slice();              // [ny]
+  let lon = data.grid.lon.map(normalizeLon);    // [nx]
+  let z   = data.grid.data;                     // [ny][nx]
+
+  const ny = lat.length;
+  const nx = lon.length;
+
+  // 1) Asegurar lon monotónica (y reordenar z)
+  // Si lon no está estrictamente creciente, ordenamos
+  let isIncreasing = true;
+  for (let j=1; j<nx; j++){
+    if (!(lon[j] > lon[j-1])) { isIncreasing = false; break; }
+  }
+  if (!isIncreasing){
+    const out = sortLonAndReorderZ(lon, z);
+    lon = out.lon;
+    z   = out.z;
+  }
+
+  // 2) Calcular resolución (media celda) robusta
+  const dLat = (ny > 1) ? Math.abs(lat[1] - lat[0]) : 0.5;
+  const dLon = (nx > 1) ? Math.abs(lon[1] - lon[0]) : 0.5;
+
+  const latMin = Math.min(...lat);
+  const latMax = Math.max(...lat);
+  const lonMin = Math.min(...lon);
+  const lonMax = Math.max(...lon);
+
+  // bounds por bordes de celda (no por centros)
+  const bounds = [
+    [latMin - dLat/2, lonMin - dLon/2],  // southWest
+    [latMax + dLat/2, lonMax + dLon/2]   // northEast
+  ];
+
+  // 3) Render (respetar si lat viene asc/desc)
+  const latIncreasing = (ny > 1) ? (lat[1] > lat[0]) : true;
+
   const canvas = document.createElement("canvas");
   canvas.width = nx;
   canvas.height = ny;
-
   const ctx = canvas.getContext("2d");
   const img = ctx.createImageData(nx, ny);
-
-  const latIncreasing = lat[1] > lat[0];
 
   for (let i = 0; i < ny; i++){
     for (let j = 0; j < nx; j++){
@@ -438,6 +480,8 @@ function drawRaster(data){
       if (v == null || !isFinite(v)) continue;
 
       const rgba = getColorPrate(v);
+
+      // Leaflet espera imagen “north on top”
       const y = latIncreasing ? (ny - 1 - i) : i;
       const k = (y * nx + j) * 4;
 
@@ -450,21 +494,17 @@ function drawRaster(data){
 
   ctx.putImageData(img, 0, 0);
 
-  const dLat = Math.abs(lat[1] - lat[0]);
-  const dLon = Math.abs(lon[1] - lon[0]);
-
-  const bounds = [
-    [lat[0] - dLat / 2, lon[0] - dLon / 2],
-    [lat[lat.length - 1] + dLat / 2, lon[lon.length - 1] + dLon / 2]
-  ];
-
   if (rasterOverlay) map.removeLayer(rasterOverlay);
-  rasterOverlay = L.imageOverlay(canvas.toDataURL(), bounds, {opacity:0.85, interactive:false}).addTo(map);
+  rasterOverlay = L.imageOverlay(canvas.toDataURL(), bounds, {
+    opacity: 0.85,
+    interactive: false
+  }).addTo(map);
+
   rasterOverlay.getElement().style.imageRendering = "pixelated";
 
+  // para tu hover
   currentData._img = { width: nx, height: ny, bounds: rasterOverlay.getBounds() };
 }
-
 function valueAtPixel(latlng){
   if (!currentData || !currentData._img) return null;
 
