@@ -438,9 +438,11 @@ function drawRaster(data){
   const latMin = Math.min(...lat), latMax = Math.max(...lat);
   const lonMin = Math.min(...lon), lonMax = Math.max(...lon);
 
+  const HALF_CELL = 0.5; // prueba 0.5 (normal). Si se corre 1 celda, usa 1.0. Si es menos, 0.25.
+
   const bounds = [
-    [latMin - dLat/2, lonMin - dLon/2],
-    [latMax + dLat/2, lonMax + dLon/2]
+    [latMin - dLat*HALF_CELL, lonMin - dLon*HALF_CELL],
+    [latMax + dLat*HALF_CELL, lonMax + dLon*HALF_CELL]
   ];
 
   // 5) Render con flip correcto
@@ -483,38 +485,63 @@ function drawRaster(data){
   currentData._grid = { lat, lon, z, latIncreasing, nx, ny };
 }
 
+// Guardar la grilla EXACTA con la que se renderizó (incluye reorden lon/z)
+currentData._render = {
+  lat: lat.slice(),
+  lon: lon.slice(),
+  z:   z,                 // OJO: esta z ya puede estar reordenada
+  latIncreasing: latIncreasing,
+  nx: nx,
+  ny: ny,
+  bounds: bounds
+};
+
 function valueAtPixel(latlng){
-  if (!currentData || !currentData._img || !currentData._grid) return null;
+  if (!currentData || !currentData._img || !currentData._render) return null;
 
   const img = currentData._img;
+  const R   = currentData._render;
+
   const bounds = img.bounds;
 
   const x = (latlng.lng - bounds.getWest()) / (bounds.getEast() - bounds.getWest());
   const y = (bounds.getNorth() - latlng.lat) / (bounds.getNorth() - bounds.getSouth());
   if (x < 0 || x > 1 || y < 0 || y > 1) return null;
 
-  const fx = x * (img.width - 1);
-  let fy   = y * (img.height - 1);
+  // coordenadas flotantes en pixeles
+  const fx = x * (img.width  - 1);
+  const fy_img = y * (img.height - 1);
 
-  // Igual que al pintar
-  if (currentData._grid.latIncreasing){
-    fy = (img.height - 1) - fy;
-  }
+  // Convertir "pixel y" (top->bottom) a índice i del grid original
+  // En render: yPix = latIncreasing ? (ny-1-i) : i
+  const fy = R.latIncreasing ? ((img.height - 1) - fy_img) : fy_img;
 
   const i0 = Math.floor(fy), j0 = Math.floor(fx);
-  const i1 = i0 + 1, j1 = j0 + 1;
-  if (i1 >= img.height || j1 >= img.width) return null;
+  const i1 = i0 + 1,         j1 = j0 + 1;
 
-  const g = currentData._grid.z;
+  if (i0 < 0 || j0 < 0 || i1 >= img.height || j1 >= img.width) return null;
+
+  const g = R.z; // <- ESTA es la clave: usar z renderizada
 
   const q11 = g[i0][j0], q21 = g[i0][j1], q12 = g[i1][j0], q22 = g[i1][j1];
+
+  // si el vecindario es inválido
   if ([q11,q21,q12,q22].every(v => v == null || !isFinite(v))) return null;
 
-  const dx = fx - j0, dy = fy - i0;
-  const v = q11*(1-dx)*(1-dy) + q21*dx*(1-dy) + q12*(1-dx)*dy + q22*dx*dy;
+  // bilinear
+  const dx = fx - j0;
+  const dy = fy - i0;
+
+  const v =
+    q11*(1-dx)*(1-dy) +
+    q21*dx*(1-dy) +
+    q12*(1-dx)*dy +
+    q22*dx*dy;
 
   return isFinite(v) ? v : null;
 }
+
+
 
 /* ================= DATA ================= */
 function loadManifest(){
