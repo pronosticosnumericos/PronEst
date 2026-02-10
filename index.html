@@ -413,7 +413,9 @@ function buildLegendHTML(periodLabel){
 }
 
 /* ================= RENDER ================= */
-function normalizeLon(lon){ return (lon > 180) ? lon - 360 : lon; }
+function normalizeLon(lon){
+  return (lon > 180) ? lon - 360 : lon;
+}
 
 function sortLonAndReorderZ(lon, z){
   // lon: [nx], z: [ny][nx]
