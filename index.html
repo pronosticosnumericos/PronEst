@@ -194,7 +194,7 @@ function prettyFromName(f){
   //let m = f.match(/_(\\d{6})_(\\d{6})/);
   let m = f.match(/_(\d{6})_(\d{6})/);
   if (m) return `${monthNameEs(+m[1].slice(4))}–${monthNameEs(+m[2].slice(4))} ${m[1].slice(0,4)}`;
-  m = f.match(/_(\\d{6})/);
+  m = f.match(/_(\d{6})/);
   if (m) return `${monthNameEs(+m[1].slice(4))} ${m[1].slice(0,4)}`;
   return f;
 }
