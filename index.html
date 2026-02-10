@@ -279,37 +279,105 @@ let mxCountryLayer = null;
 const STATE_LINE_WEIGHT   = 1.0; // estados
 const COUNTRY_LINE_WEIGHT = 1.5; // borde nacional solicitado
 
-function corsSafeGeoJSONUrl(url){
-  // geoBoundaries a veces devuelve links tipo:
-  // https://github.com/wmgeolab/geoBoundaries/raw/<sha>/releaseData/...
-  // Eso falla por CORS. Convertimos a raw.githubusercontent.com (sí permite CORS).
+function toRawGitHub(url){
+  // github.com/wmgeolab/geoBoundaries/raw/<sha>/path/file.geojson
+  // -> raw.githubusercontent.com/wmgeolab/geoBoundaries/<sha>/path/file.geojson
+  if (!url) return url;
   if (url.startsWith("https://github.com/")){
-    // raw/
     let u = url.replace("https://github.com/", "https://raw.githubusercontent.com/");
-    u = u.replace("/raw/", "/");   // owner/repo/<sha>/...
-    u = u.replace("/blob/", "/");  // por si alguna vez viene blob
+    u = u.replace("/raw/", "/");
+    u = u.replace("/blob/", "/");
     return u;
   }
   return url;
 }
 
+function toJsDelivr(url){
+  // github.com/<org>/<repo>/raw/<sha>/path/file.geojson
+  // -> https://cdn.jsdelivr.net/gh/<org>/<repo>@<sha>/path/file.geojson
+  if (!url) return url;
+
+  // Caso github.com/.../raw/...
+  const m1 = url.match(/^https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/raw\/([^\/]+)\/(.+)$/);
+  if (m1){
+    const org = m1[1], repo = m1[2], sha = m1[3], path = m1[4];
+    return `https://cdn.jsdelivr.net/gh/${org}/${repo}@${sha}/${path}`;
+  }
+
+  // Caso raw.githubusercontent.com/<org>/<repo>/<sha>/path
+  const m2 = url.match(/^https:\/\/raw\.githubusercontent\.com\/([^\/]+)\/([^\/]+)\/([^\/]+)\/(.+)$/);
+  if (m2){
+    const org = m2[1], repo = m2[2], sha = m2[3], path = m2[4];
+    return `https://cdn.jsdelivr.net/gh/${org}/${repo}@${sha}/${path}`;
+  }
+
+  return url;
+}
+
+async function fetchJsonSafe(url){
+  const res = await fetch(url, { cache: "no-store" });
+  const txt = await res.text();
+
+  if (!res.ok){
+    throw new Error(`HTTP ${res.status} al descargar: ${url}\nRespuesta: ${txt.slice(0,120)}`);
+  }
+
+  // Validación ligera: JSON suele iniciar con { o [
+  const t = txt.trim();
+  if (!(t.startsWith("{") || t.startsWith("["))){
+    throw new Error(`No parece JSON: ${url}\nInicio: ${t.slice(0,120)}`);
+  }
+
+  return JSON.parse(t);
+}
+
 async function fetchGeoBoundariesGeoJSON(apiUrl) {
+  // 1) Leer metadata (esto sí es JSON desde geoboundaries.org)
   const metaRes = await fetch(apiUrl, { cache: "no-store" });
   if (!metaRes.ok) throw new Error(`No pude leer geoBoundaries API: ${apiUrl}`);
 
   const meta = await metaRes.json();
   const obj = Array.isArray(meta) ? meta[0] : meta;
 
-  const gjUrlRaw = obj.gjDownloadURL || obj.gjDownloadUrl || obj.gjdownloadURL;
-  if (!gjUrlRaw) throw new Error(`No encontré gjDownloadURL en respuesta de: ${apiUrl}`);
+  // 2) IMPORTANTE:
+  // Usamos primero simplifiedGeometryGeoJSON (menos pesado + más estable en CDN)
+  const preferred = obj.simplifiedGeometryGeoJSON || obj.gjDownloadURL;
+  if (!preferred){
+    throw new Error(`No encontré simplifiedGeometryGeoJSON ni gjDownloadURL en: ${apiUrl}`);
+  }
 
-  const gjUrl = corsSafeGeoJSONUrl(gjUrlRaw);
+  // 3) Intento A: raw.githubusercontent.com
+  const rawUrl = toRawGitHub(preferred);
 
-  const gjRes = await fetch(gjUrl, { cache: "no-store" });
-  if (!gjRes.ok) throw new Error(`No pude descargar GeoJSON: ${gjUrl}`);
+  try {
+    return await fetchJsonSafe(rawUrl);
+  } catch (e1){
+    console.warn("[geoBoundaries] Falló raw github, intento CDN jsDelivr:", e1.message);
 
-  return await gjRes.json();
+    // 4) Intento B: jsDelivr CDN
+    const cdnUrl = toJsDelivr(preferred);
+
+    try {
+      return await fetchJsonSafe(cdnUrl);
+    } catch (e2){
+      console.error("[geoBoundaries] Falló también jsDelivr:", e2.message);
+
+      // 5) Último fallback: probar la otra URL (si preferred fue simplified, probar full; si fue full, probar simplified)
+      const alt = (preferred === obj.simplifiedGeometryGeoJSON) ? obj.gjDownloadURL : obj.simplifiedGeometryGeoJSON;
+      if (alt){
+        const altRaw = toRawGitHub(alt);
+        try {
+          return await fetchJsonSafe(altRaw);
+        } catch (_) {}
+        const altCdn = toJsDelivr(alt);
+        return await fetchJsonSafe(altCdn);
+      }
+
+      throw e2;
+    }
+  }
 }
+
 
 async function loadMexicoBoundaries(){
   try {
