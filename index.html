@@ -94,7 +94,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 .legend-row{ display:flex; align-items:center; }
 .legend-color-box{ width:16px; height:16px; margin-right:6px; border:1px solid #ccc; border-radius:3px; }
 
-/* Raster nítido */
+/* Raster nítido (Leaflet lo dibuja como <img>) */
 .leaflet-image-layer { image-rendering: pixelated; image-rendering: crisp-edges; }
 
 /* ================= RESPONSIVE (MÓVIL) ================= */
@@ -173,6 +173,18 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+/* ================= AJUSTES DE ALINEACIÓN (si aún se corre) =================
+   HALF_CELL:
+     - 0.5 = asume lon/lat son CENTROS de celda (lo más común)
+     - 0.0 = asume lon/lat ya son BORDES (raro)
+     - 1.0 = si se ve corrido ~1 celda completa
+   SHIFT (en grados):
+     - úsalo SOLO si tu grid está sistemáticamente corrido (ej. +0.025)
+*/
+const HALF_CELL   = 0.5;
+const LON_SHIFT_DEG = 0.0;
+const LAT_SHIFT_DEG = 0.0;
+
 /* ================= CONFIG ================= */
 let currentData = null;
 const VAR_LABEL = "Lluvia acumulada";
@@ -182,11 +194,10 @@ let currentType = "mensual";
 let steps = [];
 let map, rasterOverlay, legend;
 
-// Boundaries (CORS OK)
 const URL_MX_STATES  = "https://raw.githubusercontent.com/strotgen/mexico-leaflet/master/states.geojson";
 const URL_MX_COUNTRY = "https://raw.githubusercontent.com/johan/world.geo.json/master/countries/MEX.geo.json";
 
-// Si quieres el borde nacional, pon en true
+// Si quieres el borde nacional, pon true
 const DRAW_COUNTRY_BORDER = false;
 const STATE_LINE_WEIGHT   = 1.0;
 const COUNTRY_LINE_WEIGHT = 1.5;
@@ -258,11 +269,11 @@ function initMap(){
   };
   legend.addTo(map);
 
-  // Hover (usa la MISMA grilla que el raster)
+  // Hover: usa vecino más cercano (coincide con el pixel renderizado)
   map.on("mousemove", e => {
     if (!currentData) return;
 
-    const val = valueAtPixel(e.latlng);
+    const val = valueAtPixelNearest(e.latlng);
     const box = document.getElementById("hoverBox");
 
     if (val === null){
@@ -287,7 +298,7 @@ function initMap(){
   });
 }
 
-/* ================= Punto 1: Estados + (opcional) borde nacional + limitar vista ================= */
+/* ================= México (estados + borde opcional + limitar vista) ================= */
 let mxStatesLayer = null;
 let mxCountryLayer = null;
 
@@ -322,7 +333,7 @@ async function loadMexicoBoundaries(){
   }
 }
 
-/* ================= Punto 2: Panel colapsable (móvil) + leyenda colapsable ================= */
+/* ================= Panel colapsable (móvil) + leyenda colapsable ================= */
 function setupCollapsibles(){
   const menuPanel = document.getElementById("menu-panel");
   const menuBody  = document.getElementById("menuBody");
@@ -370,7 +381,6 @@ const PRATE_COLORS = [
   "#ffffff", "#ffffff", "#fee391", "#fec44f", "#addd8e", "#78c679",
   "#41ab5d", "#238443", "#1f78b4", "#225ea8", "#253494", "#54278f", "#7a0177"
 ];
-
 function hexToRGBA(hex, alpha=255){
   const c = hex.replace("#","");
   return [
@@ -409,17 +419,17 @@ function buildLegendHTML(periodLabel){
   return html;
 }
 
-/* ================= RASTER (ALINEADO + HOVER CONSISTENTE) ================= */
+/* ================= RASTER (alineado) + HOVER (coherente con pixel) ================= */
 function drawRaster(data){
-  // 1) Copias locales (no mutar original)
-  let lat = data.grid.lat.slice();
-  let lon = data.grid.lon.map(normalizeLon);
+  // Copias locales
+  let lat = data.grid.lat.slice().map(v => v + LAT_SHIFT_DEG);
+  let lon = data.grid.lon.map(v => normalizeLon(v + LON_SHIFT_DEG));
   let z   = data.grid.data; // [ny][nx]
 
   const ny = lat.length;
   const nx = lon.length;
 
-  // 2) Ordenar lon si no es estrictamente creciente (y reordenar Z)
+  // Ordenar lon si no es estrictamente creciente
   let lonIncreasing = true;
   for (let j=1; j<nx; j++){
     if (!(lon[j] > lon[j-1])) { lonIncreasing = false; break; }
@@ -430,24 +440,23 @@ function drawRaster(data){
     z   = z.map(row => idx.map(j => row[j]));
   }
 
-  // 3) Resoluciones robustas
+  // Resoluciones (deltas)
   const dLat = (ny > 1) ? Math.abs(lat[1] - lat[0]) : 0.5;
   const dLon = (nx > 1) ? Math.abs(lon[1] - lon[0]) : 0.5;
 
-  // 4) Bounds por bordes (min/max)
   const latMin = Math.min(...lat), latMax = Math.max(...lat);
   const lonMin = Math.min(...lon), lonMax = Math.max(...lon);
 
-  const HALF_CELL = 0.5; // prueba 0.5 (normal). Si se corre 1 celda, usa 1.0. Si es menos, 0.25.
-
+  // Bounds por bordes (centros ± half-cell)
   const bounds = [
     [latMin - dLat*HALF_CELL, lonMin - dLon*HALF_CELL],
     [latMax + dLat*HALF_CELL, lonMax + dLon*HALF_CELL]
   ];
 
-  // 5) Render con flip correcto
+  // Flip vertical correcto
   const latIncreasing = (ny > 1) ? (lat[1] > lat[0]) : true;
 
+  // Render canvas -> dataURL
   const canvas = document.createElement("canvas");
   canvas.width = nx;
   canvas.height = ny;
@@ -461,9 +470,9 @@ function drawRaster(data){
 
       const rgba = getColorPrate(v);
 
-      // ✅ “north on top”
-      const y = latIncreasing ? (ny - 1 - i) : i;
-      const k = (y * nx + j) * 4;
+      // Leaflet espera “north on top”
+      const yPix = latIncreasing ? (ny - 1 - i) : i;
+      const k = (yPix * nx + j) * 4;
 
       img.data[k]   = rgba[0];
       img.data[k+1] = rgba[1];
@@ -480,68 +489,42 @@ function drawRaster(data){
     interactive: false
   }).addTo(map);
 
-  // 6) Guardar “grid efectivo” para hover coherente
-  currentData._img  = { width: nx, height: ny, bounds: rasterOverlay.getBounds() };
-  currentData._grid = { lat, lon, z, latIncreasing, nx, ny };
+  // Guardar render EXACTO para hover coherente
+  currentData._render = {
+    lat, lon, z,
+    nx, ny,
+    latIncreasing,
+    bounds: rasterOverlay.getBounds()
+  };
 }
 
-// Guardar la grilla EXACTA con la que se renderizó (incluye reorden lon/z)
-currentData._render = {
-  lat: lat.slice(),
-  lon: lon.slice(),
-  z:   z,                 // OJO: esta z ya puede estar reordenada
-  latIncreasing: latIncreasing,
-  nx: nx,
-  ny: ny,
-  bounds: bounds
-};
+function valueAtPixelNearest(latlng){
+  if (!currentData || !currentData._render) return null;
 
-function valueAtPixel(latlng){
-  if (!currentData || !currentData._img || !currentData._render) return null;
+  const R = currentData._render;
+  const b = R.bounds;
 
-  const img = currentData._img;
-  const R   = currentData._render;
-
-  const bounds = img.bounds;
-
-  const x = (latlng.lng - bounds.getWest()) / (bounds.getEast() - bounds.getWest());
-  const y = (bounds.getNorth() - latlng.lat) / (bounds.getNorth() - bounds.getSouth());
+  // Normalizados 0..1 dentro del bounds
+  const x = (latlng.lng - b.getWest()) / (b.getEast() - b.getWest());
+  const y = (b.getNorth() - latlng.lat) / (b.getNorth() - b.getSouth());
   if (x < 0 || x > 1 || y < 0 || y > 1) return null;
 
-  // coordenadas flotantes en pixeles
-  const fx = x * (img.width  - 1);
-  const fy_img = y * (img.height - 1);
+  // Pixel coords (top-left origin)
+  const xPix = x * (R.nx - 1);
+  const yPix = y * (R.ny - 1);
 
-  // Convertir "pixel y" (top->bottom) a índice i del grid original
-  // En render: yPix = latIncreasing ? (ny-1-i) : i
-  const fy = R.latIncreasing ? ((img.height - 1) - fy_img) : fy_img;
+  // Invertir a índice i del grid original si latIncreasing
+  const iFloat = R.latIncreasing ? ((R.ny - 1) - yPix) : yPix;
+  const jFloat = xPix;
 
-  const i0 = Math.floor(fy), j0 = Math.floor(fx);
-  const i1 = i0 + 1,         j1 = j0 + 1;
+  const i = Math.round(iFloat);
+  const j = Math.round(jFloat);
 
-  if (i0 < 0 || j0 < 0 || i1 >= img.height || j1 >= img.width) return null;
+  if (i < 0 || j < 0 || i >= R.ny || j >= R.nx) return null;
 
-  const g = R.z; // <- ESTA es la clave: usar z renderizada
-
-  const q11 = g[i0][j0], q21 = g[i0][j1], q12 = g[i1][j0], q22 = g[i1][j1];
-
-  // si el vecindario es inválido
-  if ([q11,q21,q12,q22].every(v => v == null || !isFinite(v))) return null;
-
-  // bilinear
-  const dx = fx - j0;
-  const dy = fy - i0;
-
-  const v =
-    q11*(1-dx)*(1-dy) +
-    q21*dx*(1-dy) +
-    q12*(1-dx)*dy +
-    q22*dx*dy;
-
-  return isFinite(v) ? v : null;
+  const v = R.z[i][j];
+  return (v == null || !isFinite(v)) ? null : v;
 }
-
-
 
 /* ================= DATA ================= */
 function loadManifest(){
