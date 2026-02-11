@@ -598,6 +598,95 @@ function buildLegendHTML(periodLabel){
 
 /* ================= RASTER (alineado) + HOVER (coherente con pixel) ================= */
 
+function makeRasterTileLayer(data){
+  // Copias locales
+  const lat = data.grid.lat.slice();                 // [ny] creciente
+  let lon   = data.grid.lon.map(normalizeLon);       // [nx]
+  let z     = data.grid.data;                        // [ny][nx]
+  const ny  = lat.length;
+  const nx  = lon.length;
+
+  // Asegurar lon creciente + reordenar Z
+  let lonIncreasing = true;
+  for (let j=1;j<nx;j++){ if (!(lon[j] > lon[j-1])) { lonIncreasing=false; break; } }
+  if (!lonIncreasing){
+    const idx = lon.map((v,i)=>[v,i]).sort((a,b)=>a[0]-b[0]).map(p=>p[1]);
+    lon = idx.map(i=>lon[i]);
+    z   = z.map(row => idx.map(j=>row[j]));
+  }
+
+  const dLat = (ny>1) ? (lat[1]-lat[0]) : 0.05;
+  const dLon = (nx>1) ? (lon[1]-lon[0]) : 0.05;
+
+  const lat0 = lat[0];      // sur
+  const lon0 = lon[0];      // oeste
+
+  function valueNearest(latq, lonq){
+    // fuera del dominio
+    if (latq < lat0 - dLat*0.5 || latq > lat[ny-1] + dLat*0.5) return null;
+    if (lonq < lon0 - dLon*0.5 || lonq > lon[nx-1] + dLon*0.5) return null;
+
+    const i = Math.round((latq - lat0)/dLat);
+    const j = Math.round((lonq - lon0)/dLon);
+
+    if (i<0||i>=ny||j<0||j>=nx) return null;
+    const v = z[i][j];
+    return (v==null || !isFinite(v)) ? null : v;
+  }
+
+  return L.gridLayer({
+    tileSize: 256,
+    opacity: 1.0,
+    updateWhenZooming: false,
+    updateWhenIdle: true
+  }).createTile = function(coords){
+    const tile = document.createElement("canvas");
+    tile.width = tile.height = 256;
+    const ctx = tile.getContext("2d");
+    const img = ctx.createImageData(256,256);
+
+    // esquina sup-izq del tile en pixeles globales
+    const px0 = coords.x * 256;
+    const py0 = coords.y * 256;
+
+    for (let py=0; py<256; py++){
+      for (let px=0; px<256; px++){
+        const p = L.point(px0 + px, py0 + py);
+
+        // pixel -> latlon en el zoom del tile
+        const ll = map.unproject(p, coords.z);
+        const v  = valueNearest(ll.lat, ll.lng);
+
+        const k = (py*256 + px) * 4;
+        if (v === null){
+          img.data[k+3] = 0;
+          continue;
+        }
+
+        const rgba = getColorPrate(v);
+        img.data[k]   = rgba[0];
+        img.data[k+1] = rgba[1];
+        img.data[k+2] = rgba[2];
+        img.data[k+3] = rgba[3];
+      }
+    }
+
+    ctx.putImageData(img,0,0);
+    return tile;
+  };
+}
+
+let rasterTiles = null;
+
+function drawRasterTiles(json){
+  if (rasterTiles) map.removeLayer(rasterTiles);
+  rasterTiles = makeRasterTileLayer(json);
+  rasterTiles.addTo(map);
+
+  // para tu hover actual (opcional)
+  currentData = json;
+}
+
 function drawRaster(data){
   // Copias locales (NO mutar el JSON)
   let lat = data.grid.lat.slice();                 // [ny]
@@ -629,10 +718,14 @@ function drawRaster(data){
   const latShiftDeg = LAT_SHIFT_CELLS * dLat;
   const lonShiftDeg = LON_SHIFT_CELLS * dLon;
 
-  const bounds = [
-    [latMin - dLat*EDGE_FACTOR + latShiftDeg, lonMin - dLon*EDGE_FACTOR + lonShiftDeg],
-    [latMax + dLat*EDGE_FACTOR + latShiftDeg, lonMax + dLon*EDGE_FACTOR + lonShiftDeg]
-  ];
+  //const bounds = [
+  //  [latMin - dLat*EDGE_FACTOR + latShiftDeg, lonMin - dLon*EDGE_FACTOR + lonShiftDeg],
+  //  [latMax + dLat*EDGE_FACTOR + latShiftDeg, lonMax + dLon*EDGE_FACTOR + lonShiftDeg]
+  //];
+  const bounds = L.latLngBounds(
+  	[latMin - dLat*0.5, lonMin - dLon*0.5],
+  	[latMax + dLat*0.5, lonMax + dLon*0.5]
+  );
 
   // 4) Flip vertical correcto
   const latIncreasing = (ny > 1) ? (lat[1] > lat[0]) : true;
@@ -768,7 +861,7 @@ function loadGrid(){
     .then(r => r.json())
     .then(json => {
       currentData = json;
-      drawRaster(json);
+      drawRasterTiles(json);
 
       const body = document.querySelector(".legend-body");
       if (body){
