@@ -173,17 +173,17 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* ================= AJUSTES DE ALINEACIÓN (si aún se corre) =================
-   HALF_CELL:
-     - 0.5 = asume lon/lat son CENTROS de celda (lo más común)
-     - 0.0 = asume lon/lat ya son BORDES (raro)
-     - 1.0 = si se ve corrido ~1 celda completa
-   SHIFT (en grados):
-     - úsalo SOLO si tu grid está sistemáticamente corrido (ej. +0.025)
+/* ================= AJUSTES DE ALINEACIÓN =================
+  EDGE_FACTOR:
+    0.5 = lon/lat son CENTROS de celda (lo normal)
+  SHIFT_CELLS:
+    -0.5 = mover 1/2 celda al SUR (si el raster está corrido al NORTE)
+    -1.0 = mover 1 celda al SUR
+    +0.5 = mover 1/2 celda al NORTE (si estuviera corrido al SUR)
 */
-const HALF_CELL   = 1.0;
-const LON_SHIFT_DEG = 0.0;
-const LAT_SHIFT_DEG = 0.0;
+const EDGE_FACTOR      = 0.5;
+const LAT_SHIFT_CELLS  = -0.5;   // 👈 tu caso: raster movido al NORTE -> baja al SUR
+const LON_SHIFT_CELLS  = 0.0;
 
 /* ================= CONFIG ================= */
 let currentData = null;
@@ -421,17 +421,17 @@ function buildLegendHTML(periodLabel){
 
 /* ================= RASTER (alineado) + HOVER (coherente con pixel) ================= */
 function drawRaster(data){
-  // Copias locales
-  let lat = data.grid.lat.slice().map(v => v + LAT_SHIFT_DEG);
-  let lon = data.grid.lon.map(v => normalizeLon(v + LON_SHIFT_DEG));
-  let z   = data.grid.data; // [ny][nx]
+  // Copias locales (NO mutar el JSON)
+  let lat = data.grid.lat.slice();                 // [ny]
+  let lon = data.grid.lon.map(normalizeLon);       // [nx]
+  let z   = data.grid.data;                        // [ny][nx]
 
   const ny = lat.length;
   const nx = lon.length;
 
-  // Ordenar lon si no es estrictamente creciente
+  // 1) Asegurar lon creciente y reordenar Z si hace falta
   let lonIncreasing = true;
-  for (let j=1; j<nx; j++){
+  for (let j = 1; j < nx; j++){
     if (!(lon[j] > lon[j-1])) { lonIncreasing = false; break; }
   }
   if (!lonIncreasing){
@@ -440,29 +440,26 @@ function drawRaster(data){
     z   = z.map(row => idx.map(j => row[j]));
   }
 
-  // Resoluciones (deltas)
+  // 2) Resoluciones
   const dLat = (ny > 1) ? Math.abs(lat[1] - lat[0]) : 0.5;
   const dLon = (nx > 1) ? Math.abs(lon[1] - lon[0]) : 0.5;
 
+  // 3) Bounds por BORDES (centros ± EDGE_FACTOR*delta) + shift en celdas
   const latMin = Math.min(...lat), latMax = Math.max(...lat);
   const lonMin = Math.min(...lon), lonMax = Math.max(...lon);
 
-  const HALF_CELL = 0.5; // déjalo en 0.5
+  const latShiftDeg = LAT_SHIFT_CELLS * dLat;
+  const lonShiftDeg = LON_SHIFT_CELLS * dLon;
 
-  // ✅ SHIFT: raster corrido al NORTE => moverlo al SUR => shift NEGATIVO
-  const LAT_SHIFT_DEG = -dLat * 0.5;   // prueba -0.025 aprox
-  // Bounds por bordes (centros ± hdalf-cell)
   const bounds = [
-    //[latMin - dLat*HALF_CELL, lonMin - dLon*HALF_CELL],
-    //[latMax + dLat*HALF_CELL, lonMax + dLon*HALF_CELL]
-    [latMin - dLat*HALF_CELL + LAT_SHIFT_DEG, lonMin - dLon*HALF_CELL],
-    [latMax + dLat*HALF_CELL + LAT_SHIFT_DEG, lonMax + dLon*HALF_CELL]
+    [latMin - dLat*EDGE_FACTOR + latShiftDeg, lonMin - dLon*EDGE_FACTOR + lonShiftDeg],
+    [latMax + dLat*EDGE_FACTOR + latShiftDeg, lonMax + dLon*EDGE_FACTOR + lonShiftDeg]
   ];
 
-  // Flip vertical correcto
+  // 4) Flip vertical correcto
   const latIncreasing = (ny > 1) ? (lat[1] > lat[0]) : true;
 
-  // Render canvas -> dataURL
+  // 5) Render canvas -> dataURL
   const canvas = document.createElement("canvas");
   canvas.width = nx;
   canvas.height = ny;
@@ -497,7 +494,7 @@ function drawRaster(data){
 
   // Guardar render EXACTO para hover coherente
   currentData._render = {
-    lat, lon, z,
+    z,
     nx, ny,
     latIncreasing,
     bounds: rasterOverlay.getBounds()
