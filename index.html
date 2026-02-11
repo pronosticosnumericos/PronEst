@@ -434,6 +434,8 @@ function drawRaster(data){
   let lon = data.grid.lon.map(normalizeLon);       // [nx]
   let z   = data.grid.data;                        // [ny][nx]
 
+  const drawn = new Uint8Array(nx * ny);  // 0 = no pintado, 1 = pintado
+
   const ny = lat.length;
   const nx = lon.length;
 
@@ -483,7 +485,11 @@ function drawRaster(data){
 
       // Leaflet espera “north on top”
       const yPix = latIncreasing ? (ny - 1 - i) : i;
-      const k = (yPix * nx + j) * 4;
+      const k = (yPix * nx + j) //* 4;
+
+      if (rgba[3] === 0) continue;
+
+      drawn[kPix= = 1;
 
       img.data[k]   = rgba[0];
       img.data[k+1] = rgba[1];
@@ -506,6 +512,7 @@ function drawRaster(data){
     nx, ny,
     latIncreasing,
     bounds: rasterOverlay.getBounds()
+    drawn
   };
 }
 
@@ -521,17 +528,34 @@ function valueAtPixelNearest(latlng){
   if (x < 0 || x > 1 || y < 0 || y > 1) return null;
 
   // Pixel coords (top-left origin)
-  const xPix = x * (R.nx - 1);
-  const yPix = y * (R.ny - 1);
+  //const xPix = x * (R.nx - 1);
+  //const yPix = y * (R.ny - 1);
+  //const yPix = R.latIncreasing ? (R.ny - 1 - i) : i;
+  //const kPix = yPix * R.nx + j;
+  const jPix = Math.max(0, Math.min(R.nx - 1, Math.floor(x * R.nx)));
+  const iPix = Math.max(0, Math.min(R.ny - 1, Math.floor(y * R.ny))); // iPix = fila en canvas
+  
+  if (R.drawn && R.drawn[kPix] === 0) return null;
+
 
   // Invertir a índice i del grid original si latIncreasing
   const iFloat = R.latIncreasing ? ((R.ny - 1) - yPix) : yPix;
   const jFloat = xPix;
 
-  const i = Math.round(iFloat);
-  const j = Math.round(jFloat);
+  //const i = Math.round(iFloat);
+  //const j = Math.round(jFloat);
+  const i = Math.max(0, Math.min(R.ny - 1, Math.floor(iFloat)));
+  const j = Math.max(0, Math.min(R.nx - 1, Math.floor(jFloat)));
+
 
   if (i < 0 || j < 0 || i >= R.ny || j >= R.nx) return null;
+
+  const i = R.latIncreasing ? (R.ny - 1 - iPix) : iPix;
+  const j = jPix;
+
+// máscara de pintado
+const kPix = iPix * R.nx + jPix;
+if (R.drawn && R.drawn[kPix] === 0) return null;
 
   const v = R.z[i][j];
   return (v == null || !isFinite(v)) ? null : v;
