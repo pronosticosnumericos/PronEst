@@ -447,10 +447,16 @@ function drawRaster(data){
   const latMin = Math.min(...lat), latMax = Math.max(...lat);
   const lonMin = Math.min(...lon), lonMax = Math.max(...lon);
 
-  // Bounds por bordes (centros ± half-cell)
+  const HALF_CELL = 0.5; // déjalo en 0.5
+
+  // ✅ SHIFT: raster corrido al NORTE => moverlo al SUR => shift NEGATIVO
+  const LAT_SHIFT_DEG = -dLat * 0.5;   // prueba -0.025 aprox
+  // Bounds por bordes (centros ± hdalf-cell)
   const bounds = [
-    [latMin - dLat*HALF_CELL, lonMin - dLon*HALF_CELL],
-    [latMax + dLat*HALF_CELL, lonMax + dLon*HALF_CELL]
+    //[latMin - dLat*HALF_CELL, lonMin - dLon*HALF_CELL],
+    //[latMax + dLat*HALF_CELL, lonMax + dLon*HALF_CELL]
+    [latMin - dLat*HALF_CELL + LAT_SHIFT_DEG, lonMin - dLon*HALF_CELL],
+    [latMax + dLat*HALF_CELL + LAT_SHIFT_DEG, lonMax + dLon*HALF_CELL]
   ];
 
   // Flip vertical correcto
