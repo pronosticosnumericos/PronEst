@@ -12,12 +12,21 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 #map { position:absolute; top: var(--headerH); bottom:0; left:0; right:0; z-index:1; }
 
 /* Asegura que el panel y sus controles reciban toques en iOS */
-#menu-panel, #menu-panel *{
+#menu-panel{
   pointer-events: auto;
   touch-action: auto;
   -webkit-tap-highlight-color: transparent;
 }
-
+#menu-panel *{
+  pointer-events: auto;
+  touch-action: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Fuerza el picker nativo del select */
+#menu-panel select{
+  -webkit-appearance: menulist;
+  appearance: menulist;
+}
 /* ================= HEADER ================= */
 /* ================= MENU PANEL ================= */
 /* ================= HEADER (GRID) ================= */
