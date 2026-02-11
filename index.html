@@ -33,9 +33,10 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 
 /* ================= MENU PANEL ================= */
 #menu-panel{
-  position:absolute; top:110px; left:50%; transform:translateX(-50%);
-  background:rgba(255,255,255,0.96); padding:14px 18px; border-radius:14px;
-  box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:2000; min-width:360px;
+  position:absolute; top:110px; left:14px; transform:none;
+  background:rgba(255,255,255,0.92); padding:12px 14px; border-radius:14px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:2000; min-width:340px;
+  max-width: 420px;
 }
 .menu-header{ display:flex; align-items:center; justify-content:center; gap:10px; }
 .menu-header{ position: relative; }
@@ -155,11 +156,12 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 <header id="site-header">
   <div class="header-left">
     <img src="logo2.jpeg" alt="ClimaproAgro logo">
-    <div class="header-text">
+  </div>
+  <div class="header-text">
       <div class="brand">ClimaproAgro</div>
       <div class="tagline">Información Climática para la Agricultura</div>
-    </div>
   </div>
+  
   <div class="header-right">
     <a href="https://www.climaproagro.com/contacto" class="btn-contacto">Contacto</a>
   </div>
@@ -257,25 +259,29 @@ async function fetchJsonSafe(url){
 function initMap(){
   map = L.map("map", { zoomControl: true, minZoom: 5, maxZoom: 10, maxBoundsViscosity: 1.0 });//.setView([23,-102],5);
 
+  map.createPane("labels");
+  map.getPane("labels").style.zIndex = 650;
+  map.getPane("labels").style.pointerEvents = "none";
+
   L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
     { attribution: "© OpenStreetMap, © CARTO" }
   ).addTo(map);
 
-  L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.6 }
-  ).addTo(map);
+  //L.tileLayer(
+  //  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
+  //  { opacity: 0.6 }
+  //).addTo(map);
 
   L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
     { opacity: 0.9 }
   ).addTo(map);
 
-  L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.15 }
-  ).addTo(map);
+  //L.tileLayer(
+  //  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
+  //  { opacity: 0.15 }
+  //).addTo(map);
 
   // Legend control
   legend = L.control({ position: "bottomright" });
