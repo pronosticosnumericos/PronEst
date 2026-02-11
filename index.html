@@ -11,6 +11,13 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 :root{ --headerH: 90px; }   /* <-- agrégalo arriba del #map */
 #map { position:absolute; top: var(--headerH); bottom:0; left:0; right:0; z-index:1; }
 
+/* Asegura que el panel y sus controles reciban toques en iOS */
+#menu-panel, #menu-panel *{
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ================= HEADER ================= */
 /* ================= MENU PANEL ================= */
 /* ================= HEADER (GRID) ================= */
@@ -140,6 +147,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 /* MÓVIL */
 @media (max-width: 600px){
   :root{ --headerH: 110px; }
+  #menuToggleBtn{ display:block; }
 
   #site-header{
     height:auto;
@@ -293,7 +301,12 @@ async function fetchJsonSafe(url){
 
 /* ================= MAP ================= */
 function initMap(){
-  map = L.map("map", { zoomControl: true, minZoom: 5, maxZoom: 10, maxBoundsViscosity: 1.0 });//.setView([23,-102],5);
+  map = L.map("map", {
+    zoomControl: true,
+    minZoom: 5,
+    maxZoom: 10,
+    maxBoundsViscosity: 1.0
+  });
 
   map.createPane("labels");
   map.getPane("labels").style.zIndex = 650;
@@ -304,20 +317,10 @@ function initMap(){
     { attribution: "© OpenStreetMap, © CARTO" }
   ).addTo(map);
 
-  //L.tileLayer(
-  //  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
-  //  { opacity: 0.6 }
-  //).addTo(map);
-
   L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
     { opacity: 0.9, pane: "labels" }
   ).addTo(map);
-
-  //L.tileLayer(
-  //  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
-  //  { opacity: 0.15 }
-  //).addTo(map);
 
   // Legend control
   legend = L.control({ position: "bottomright" });
@@ -336,8 +339,8 @@ function initMap(){
   };
   legend.addTo(map);
 
-  // Hover: usa vecino más cercano (coincide con el pixel renderizado)
-  map.on("mousemove", e => {
+  // ====== PC: hover con mouse ======
+  map.on("mousemove", (e) => {
     if (!currentData) return;
 
     const val = valueAtPixelNearest(e.latlng);
@@ -363,6 +366,33 @@ function initMap(){
   map.on("mouseout", () => {
     document.getElementById("hoverBox").style.display = "none";
   });
+
+  // ====== MÓVIL: tap/click para mostrar valor ======
+  map.on("click", (e) => {
+    // 👇 Si el tap viene de UI, NO hagas hover del mapa
+    const tgt = e.originalEvent?.target;
+    if (tgt && (tgt.closest("#menu-panel") || tgt.closest(".legend") || tgt.closest("#site-header"))){
+      return;
+    }
+
+    if (!currentData) return;
+
+    const p = e.originalEvent || {};
+    const t = (p.touches && p.touches[0]) ? p.touches[0] : null;
+
+    // pageX/pageY en iOS a veces vienen en touches
+    let x = (p.pageX ?? (t && t.pageX)) || 0;
+    let y = (p.pageY ?? (t && t.pageY)) || 0;
+
+    if (!x || !y){
+      const c = map.getContainer().getBoundingClientRect();
+      x = c.left + c.width / 2;
+      y = c.top  + c.height / 2;
+    }
+
+    showValueBox(e.latlng, { x, y });
+  });
+
 }
 
 /* ================= México (estados + borde opcional + limitar vista) ================= */
@@ -405,24 +435,40 @@ function setupCollapsibles(){
   const menuPanel = document.getElementById("menu-panel");
   const menuBody  = document.getElementById("menuBody");
   const menuBtn   = document.getElementById("menuToggleBtn");
-
   if (menuPanel){
+    // Leaflet: evita que el mapa capture toques/clicks dentro del panel
     L.DomEvent.disableClickPropagation(menuPanel);
     L.DomEvent.disableScrollPropagation(menuPanel);
+
+    // iOS/Safari: corta eventos "tempranos" que Leaflet usa para arrastrar/zoom
+    L.DomEvent.on(menuPanel, "touchstart", L.DomEvent.stopPropagation);
+    L.DomEvent.on(menuPanel, "touchmove",  L.DomEvent.stopPropagation);
+    L.DomEvent.on(menuPanel, "pointerdown",L.DomEvent.stopPropagation);
+    L.DomEvent.on(menuPanel, "mousedown",  L.DomEvent.stopPropagation);
+    L.DomEvent.on(menuPanel, "wheel",      L.DomEvent.stopPropagation);
+
+    // Si tocas el panel, ocultamos el hoverBox (no estorba)
+    L.DomEvent.on(menuPanel, "click", () => {
+      const box = document.getElementById("hoverBox");
+      if (box) box.style.display = "none";
+    });
   }
 
   const isMobile = window.matchMedia && window.matchMedia("(max-width: 600px)").matches;
 
-  if (isMobile){
+  if (isMobile && menuBody && menuBtn){
     menuBody.classList.add("is-collapsed");
     menuBtn.textContent = "☰";
   }
 
-  menuBtn.addEventListener("click", () => {
-    const collapsed = menuBody.classList.toggle("is-collapsed");
-    menuBtn.textContent = collapsed ? "☰" : "✕";
-  });
+  if (menuBtn && menuBody){
+    menuBtn.addEventListener("click", () => {
+      const collapsed = menuBody.classList.toggle("is-collapsed");
+      menuBtn.textContent = collapsed ? "☰" : "✕";
+    });
+  }
 
+  // Leyenda colapsable
   const legendEl = document.querySelector(".legend");
   if (!legendEl) return;
 
@@ -441,6 +487,7 @@ function setupCollapsibles(){
     });
   }
 }
+
 
 /* ================= COLORS ================= */
 const PRATE_LEVELS = [1,30,60,90,120,180,240,360,500,600,700,800,1000];
@@ -633,6 +680,30 @@ function valueAtPixelNearest(latlng){
 
   const v = R.z[i][j];
   return (v == null || !isFinite(v)) ? null : v;
+}
+
+function showValueBox(latlng, pageXY){
+  if (!currentData) return;
+
+  const val = valueAtPixelNearest(latlng);
+  const box = document.getElementById("hoverBox");
+
+  if (val === null){
+    box.style.display = "none";
+    return;
+  }
+
+  box.innerHTML = `
+    <b>${VAR_LABEL}</b><br>
+    Valor: <b>${val.toFixed(1)} ${VAR_UNITS}</b><br>
+    Lat: ${latlng.lat.toFixed(2)}°<br>
+    Lon: ${latlng.lng.toFixed(2)}°<br>
+    Tipo: ${currentType === "mensual" ? "Mensual" : "Bimestral"}
+  `;
+
+  box.style.left = (pageXY.x + 15) + "px";
+  box.style.top  = (pageXY.y + 15) + "px";
+  box.style.display = "block";
 }
 
   
