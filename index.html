@@ -13,7 +13,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 /* ================= HEADER ================= */
 #site-header{
   position: fixed; top: 0; left: 0; right: 0; height: 80px;
-  background: #ffffff; display: flex; justify-content: space-between; align-items: center;
+  background: #ffffff; display: flex; justify-content: center; align-items: center;
   padding: 0 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); z-index: 3000;
 }
 .header-left{ display: flex; align-items: center; gap: 14px; }
@@ -233,7 +233,7 @@ async function fetchJsonSafe(url){
 
 /* ================= MAP ================= */
 function initMap(){
-  map = L.map("map", { zoomControl: true, minZoom: 6, maxZoom: 10, maxBoundsViscosity: 1.0 });//.setView([23,-102],5);
+  map = L.map("map", { zoomControl: true, minZoom: 5.5, maxZoom: 10, maxBoundsViscosity: 1.0 });//.setView([23,-102],5);
 
   L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
