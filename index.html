@@ -309,6 +309,49 @@ async function fetchJsonSafe(url){
   return JSON.parse(t);
 }
 
+function prepareGridIndex(data){
+  const lat = data.grid.lat.slice();                 // [ny]
+  let lon   = data.grid.lon.map(normalizeLon);       // [nx]
+  let z     = data.grid.data;                        // [ny][nx]
+  const ny  = lat.length;
+  const nx  = lon.length;
+
+  // Asegurar lon creciente + reordenar Z si hace falta
+  let lonIncreasing = true;
+  for (let j=1; j<nx; j++){
+    if (!(lon[j] > lon[j-1])) { lonIncreasing = false; break; }
+  }
+  if (!lonIncreasing){
+    const idx = lon.map((v,i)=>[v,i]).sort((a,b)=>a[0]-b[0]).map(p=>p[1]);
+    lon = idx.map(i=>lon[i]);
+    z   = z.map(row => idx.map(j=>row[j]));
+  }
+
+  const dLat = (ny > 1) ? (lat[1] - lat[0]) : 0.05;
+  const dLon = (nx > 1) ? (lon[1] - lon[0]) : 0.05;
+
+  data._gridIndex = { lat, lon, z, nx, ny, dLat, dLon, lat0: lat[0], lon0: lon[0] };
+}
+
+function valueAtGridNearest(latq, lonq){
+  if (!currentData || !currentData._gridIndex) return null;
+
+  const G = currentData._gridIndex;
+  const lonN = normalizeLon(lonq);
+
+  // Fuera de dominio (con margen 1/2 celda)
+  if (latq < G.lat0 - G.dLat*0.5 || latq > G.lat[G.ny-1] + G.dLat*0.5) return null;
+  if (lonN < G.lon0 - G.dLon*0.5 || lonN > G.lon[G.nx-1] + G.dLon*0.5) return null;
+
+  const i = Math.round((latq - G.lat0) / G.dLat);
+  const j = Math.round((lonN - G.lon0) / G.dLon);
+
+  if (i < 0 || i >= G.ny || j < 0 || j >= G.nx) return null;
+
+  const v = G.z[i][j];
+  return (v == null || !isFinite(v)) ? null : v;
+}
+
 /* ================= MAP ================= */
 function initMap(){
   map = L.map("map", {
@@ -354,7 +397,7 @@ function initMap(){
   map.on("mousemove", (e) => {
     if (!currentData) return;
 
-    const val = valueAtPixelNearest(e.latlng);
+    const val = valueAtGridNearest(e.latlng.lat, e.latlng.lng);
     const box = document.getElementById("hoverBox");
 
     if (val === null){
@@ -640,29 +683,33 @@ function makeRasterTileLayer(data){
     updateWhenZooming: false,
     updateWhenIdle: true
   }).createTile = function(coords){
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1)); // cap en 2
+    const size = 256;
+
     const tile = document.createElement("canvas");
-    tile.width = tile.height = 256;
+    tile.width  = size * dpr;
+    tile.height = size * dpr;
+
     const ctx = tile.getContext("2d");
-    const img = ctx.createImageData(256,256);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // esquina sup-izq del tile en pixeles globales
-    const px0 = coords.x * 256;
-    const py0 = coords.y * 256;
+    const img = ctx.createImageData(size, size);
 
-    for (let py=0; py<256; py++){
-      for (let px=0; px<256; px++){
+    const px0 = coords.x * size;
+    const py0 = coords.y * size;
+
+    for (let py=0; py<size; py++){
+      for (let px=0; px<size; px++){
         const p = L.point(px0 + px, py0 + py);
-
-        // pixel -> latlon en el zoom del tile
         const ll = map.unproject(p, coords.z);
-        const v  = valueNearest(ll.lat, ll.lng);
 
-        const k = (py*256 + px) * 4;
+        const v = valueAtGridNearest(ll.lat, ll.lng);
+        const k = (py*size + px) * 4;
+
         if (v === null){
           img.data[k+3] = 0;
           continue;
         }
-
         const rgba = getColorPrate(v);
         img.data[k]   = rgba[0];
         img.data[k+1] = rgba[1];
@@ -671,21 +718,23 @@ function makeRasterTileLayer(data){
       }
     }
 
-    ctx.putImageData(img,0,0);
+    ctx.putImageData(img, 0, 0);
     return tile;
   };
+
 }
 
 let rasterTiles = null;
 
 function drawRasterTiles(json){
-  if (rasterTiles) map.removeLayer(rasterTiles);
-  rasterTiles = makeRasterTileLayer(json);
-  rasterTiles.addTo(map);
-
-  // para tu hover actual (opcional)
   currentData = json;
+  prepareGridIndex(currentData);
+
+  if (rasterTiles) map.removeLayer(rasterTiles);
+  rasterTiles = makeRasterTileLayer(currentData);
+  rasterTiles.addTo(map);
 }
+
 
 function drawRaster(data){
   // Copias locales (NO mutar el JSON)
@@ -817,7 +866,7 @@ function valueAtPixelNearest(latlng){
 function showValueBox(latlng, pageXY){
   if (!currentData) return;
 
-  const val = valueAtPixelNearest(latlng);
+  const val = valueAtGridNearest(latlng.lat, latlng.lng);
   const box = document.getElementById("hoverBox");
 
   if (val === null){
