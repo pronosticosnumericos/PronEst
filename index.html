@@ -519,24 +519,28 @@ function drawRaster(data){
   };
 }
 
-  
-  
 function valueAtPixelNearest(latlng){
   if (!currentData || !currentData._render) return null;
 
   const R = currentData._render;
   const b = R.bounds;
 
-  // Normalizados 0..1 dentro del bounds
-  const x = (latlng.lng - b.getWest()) / (b.getEast() - b.getWest());
-  const y = (b.getNorth() - latlng.lat) / (b.getNorth() - b.getSouth());
+  // ✅ Usar la proyección del CRS (EPSG:3857)
+  const crs = map.options.crs;
+  const p   = crs.project(latlng);
+  const nw  = crs.project(b.getNorthWest());
+  const se  = crs.project(b.getSouthEast());
+
+  const x = (p.x - nw.x) / (se.x - nw.x);
+  const y = (nw.y - p.y) / (nw.y - se.y); // top=0, bottom=1
+
   if (x < 0 || x > 1 || y < 0 || y > 1) return null;
 
-  // Pixel del CANVAS (top-left origin)
+  // Pixel del canvas (top-left)
   const jPix = Math.max(0, Math.min(R.nx - 1, Math.floor(x * R.nx)));
   const iPix = Math.max(0, Math.min(R.ny - 1, Math.floor(y * R.ny)));
 
-  // máscara: si no se pintó, no hay hover
+  // máscara: si no se pintó ese pixel, no hay hover
   const kPix = iPix * R.nx + jPix;
   if (R.drawn && R.drawn[kPix] === 0) return null;
 
@@ -547,6 +551,8 @@ function valueAtPixelNearest(latlng){
   const v = R.z[i][j];
   return (v == null || !isFinite(v)) ? null : v;
 }
+
+  
 
 /* ================= DATA ================= */
 function loadManifest(){
