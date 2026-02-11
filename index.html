@@ -33,6 +33,9 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
   box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:2000; min-width:360px;
 }
 .menu-header{ display:flex; align-items:center; justify-content:center; gap:10px; }
+.menu-header{ position: relative; }
+.menu-header > div{ width: 100%; text-align: center; }
+#menuToggleBtn{ position: absolute; right: 0; top: 0; }
 .menu-title{ font-size:20px; font-weight:800; color:#1f3b5c; margin:0; }
 .menu-subtitle{ display:block; font-size:16px; font-weight:500; color:#6b7c93; margin-top:2px; justify-content:center; }
 
@@ -410,7 +413,7 @@ function getColorPrate(v){
   if (!isFinite(v) || v < PRATE_LEVELS[0]) return [255,255,255,0];
   for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
     if (v >= PRATE_LEVELS[i] && v < PRATE_LEVELS[i+1]){
-      return hexToRGBA(PRATE_COLORS[i+1], 255);
+      return hexToRGBA(PRATE_COLORS[i], 255);
     }
   }
   return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 255);
@@ -424,14 +427,14 @@ function buildLegendHTML(periodLabel){
   html += `
     <div class="legend-row">
       <div class="legend-color-box" style="background:${PRATE_COLORS[PRATE_COLORS.length-1]}"></div>
-      <span>&gt; ${PRATE_BINS[PRATE_BINS.length-1]}</span>
+      <span>&gt; ${PRATE_LEVELS[PRATE_LEVELS.length-1]}</span>
     </div>
   `;
 
   // 800–1000 ... 1–30
-  for (let i = PRATE_BINS.length - 2; i >= 0; i--){
-    const a = PRATE_BINS[i];
-    const b = PRATE_BINS[i+1];
+  for (let i = PRATE_LEVELS.length - 2; i >= 0; i--){
+    const a = PRATE_LEVELS[i];
+    const b = PRATE_LEVELS[i+1];
     html += `
       <div class="legend-row">
         <div class="legend-color-box" style="background:${PRATE_COLORS[i]}"></div>
