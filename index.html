@@ -619,7 +619,7 @@ function drawRaster(data){
       if (v == null || !isFinite(v)) continue;
 
       const rgba = getColorPrate(v);
-      const y = latIncreasing ? (ny + 9 - i) : i;
+      const y = latIncreasing ? (ny + 7 - i) : i;
       const k = (y * nx + j) * 4;
 
       img.data[k]   = rgba[0];
