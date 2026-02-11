@@ -314,7 +314,8 @@ function initMap(){
     zoomControl: true,
     minZoom: 5,
     maxZoom: 10,
-    maxBoundsViscosity: 1.0
+    maxBoundsViscosity: 1.0,
+    tap: false // ✅ iPhone Safari fix
   });
 
   map.createPane("labels");
@@ -464,9 +465,25 @@ function setupCollapsibles(){
       if (t && (t.tagName === "SELECT" || t.tagName === "INPUT")) return;
       ev.stopPropagation();
     }, { passive: true });
-    L.DomEvent.on(menuPanel, "pointerdown",L.DomEvent.stopPropagation);
-    L.DomEvent.on(menuPanel, "mousedown",  L.DomEvent.stopPropagation);
-    L.DomEvent.on(menuPanel, "wheel",      L.DomEvent.stopPropagation);
+    //L.DomEvent.on(menuPanel, "pointerdown",L.DomEvent.stopPropagation);
+    //L.DomEvent.on(menuPanel, "mousedown",  L.DomEvent.stopPropagation);
+    //L.DomEvent.on(menuPanel, "wheel",      L.DomEvent.stopPropagation);
+    const isUI = (el) => !!el && !!el.closest("select, input, label, button, a, option");
+
+    menuPanel.addEventListener("pointerdown", (ev) => {
+      if (isUI(ev.target)) return;   // ✅ deja que iOS abra el select
+      ev.stopPropagation();
+    }, { passive: true });
+
+    menuPanel.addEventListener("mousedown", (ev) => {
+      if (isUI(ev.target)) return;
+      ev.stopPropagation();
+    }, { passive: true });
+
+    menuPanel.addEventListener("wheel", (ev) => {
+      ev.stopPropagation();
+    }, { passive: true });
+
 
     // Si tocas el panel, ocultamos el hoverBox (no estorba)
     L.DomEvent.on(menuPanel, "click", () => {
