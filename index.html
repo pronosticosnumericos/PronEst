@@ -32,7 +32,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
   background:rgba(255,255,255,0.96); padding:14px 18px; border-radius:14px;
   box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:2000; min-width:360px;
 }
-.menu-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.menu-header{ display:flex; align-items:center; justify-content:center; gap:10px; }
 .menu-title{ font-size:15px; font-weight:800; color:#1f3b5c; margin:0; }
 .menu-subtitle{ display:block; font-size:12px; font-weight:500; color:#6b7c93; margin-top:2px; }
 
@@ -399,17 +399,19 @@ function getColorPrate(v){
   }
   return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 200);
 }
+  
 function buildLegendHTML(periodLabel){
   let html = `<b>${VAR_LABEL} (${VAR_UNITS})</b><br>`;
   html += `<span style="font-size:11px">${periodLabel}</span><br><br>`;
+
   const PRATE_LABELS = [
-  "&lt; 30", "30 – 60", "60 – 90", "90 – 120",
-  "120 – 180", "180 – 240", "240 – 360", "360 – 500",
-  "500 – 600", "600 – 700", "700 – 800", "800 – 1000", "> 1000"
+    "&lt; 30", "30 – 60", "60 – 90", "90 – 120",
+    "120 – 180", "180 – 240", "240 – 360", "360 – 500",
+    "500 – 600", "600 – 700", "700 – 800", "800 – 1000", "&gt; 1000"
   ];
 
-  for (let i = 0; i < PRATE_LEVELS.length - 2; i >= 0; i--){
-    //const label = (i < PRATE_LABELS.length) ? PRATE_LABELS[i] : `${PRATE_LEVELS[i]} – ${PRATE_LEVELS[i+1]}`;
+  // ✅ mayor -> menor (grandes arriba, pequeños abajo)
+  for (let i = PRATE_LEVELS.length - 2; i >= 0; i--){
     const label = PRATE_LABELS[i] || `${PRATE_LEVELS[i]} – ${PRATE_LEVELS[i+1]}`;
 
     html += `
@@ -419,12 +421,7 @@ function buildLegendHTML(periodLabel){
       </div>
     `;
   }
-  html += `
-    <div class="legend-row">
-      <div class="legend-color-box" style="background:${PRATE_COLORS[PRATE_COLORS.length-1]}"></div>
-      <span>&gt; ${PRATE_LEVELS[PRATE_LEVELS.length-1]}</span>
-    </div>
-  `;
+
   return html;
 }
 
