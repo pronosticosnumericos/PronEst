@@ -14,7 +14,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 /* Asegura que el panel y sus controles reciban toques en iOS */
 #menu-panel, #menu-panel *{
   pointer-events: auto;
-  touch-action: manipulation;
+  touch-action: auto;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -441,8 +441,20 @@ function setupCollapsibles(){
     L.DomEvent.disableScrollPropagation(menuPanel);
 
     // iOS/Safari: corta eventos "tempranos" que Leaflet usa para arrastrar/zoom
-    L.DomEvent.on(menuPanel, "touchstart", L.DomEvent.stopPropagation);
-    L.DomEvent.on(menuPanel, "touchmove",  L.DomEvent.stopPropagation);
+    //L.DomEvent.on(menuPanel, "touchstart", L.DomEvent.stopPropagation);
+    //L.DomEvent.on(menuPanel, "touchmove",  L.DomEvent.stopPropagation);
+    menuPanel.addEventListener("touchstart", (ev) => {
+      // si el toque viene de un input/select, no lo bloquees
+      const t = ev.target;
+      if (t && (t.tagName === "SELECT" || t.tagName === "INPUT" || t.tagName === "LABEL" || t.tagName === "BUTTON")) return;
+      ev.stopPropagation();
+    }, { passive: true });
+
+    menuPanel.addEventListener("touchmove", (ev) => {
+      const t = ev.target;
+      if (t && (t.tagName === "SELECT" || t.tagName === "INPUT")) return;
+      ev.stopPropagation();
+    }, { passive: true });
     L.DomEvent.on(menuPanel, "pointerdown",L.DomEvent.stopPropagation);
     L.DomEvent.on(menuPanel, "mousedown",  L.DomEvent.stopPropagation);
     L.DomEvent.on(menuPanel, "wheel",      L.DomEvent.stopPropagation);
