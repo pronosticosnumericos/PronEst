@@ -413,27 +413,29 @@ function getColorPrate(v){
       return hexToRGBA(PRATE_COLORS[i+1], 255);
     }
   }
-  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 200);
+  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 255);
 }
   
 function buildLegendHTML(periodLabel){
   let html = `<b>${VAR_LABEL} (${VAR_UNITS})</b><br>`;
   html += `<span style="font-size:11px">${periodLabel}</span><br><br>`;
 
-  const PRATE_LABELS = [
-    "&lt; 30", "30 – 60", "60 – 90", "90 – 120",
-    "120 – 180", "180 – 240", "240 – 360", "360 – 500",
-    "500 – 600", "600 – 700", "700 – 800", "800 – 1000", "&gt; 1000"
-  ];
+  // >1000 arriba
+  html += `
+    <div class="legend-row">
+      <div class="legend-color-box" style="background:${PRATE_COLORS[PRATE_COLORS.length-1]}"></div>
+      <span>&gt; ${PRATE_BINS[PRATE_BINS.length-1]}</span>
+    </div>
+  `;
 
-  // ✅ mayor -> menor (grandes arriba, pequeños abajo)
-  for (let i = PRATE_LEVELS.length - 2; i >= 0; i--){
-    const label = PRATE_LABELS[i] || `${PRATE_LEVELS[i]} – ${PRATE_LEVELS[i+1]}`;
-
+  // 800–1000 ... 1–30
+  for (let i = PRATE_BINS.length - 2; i >= 0; i--){
+    const a = PRATE_BINS[i];
+    const b = PRATE_BINS[i+1];
     html += `
       <div class="legend-row">
-        <div class="legend-color-box" style="background:${PRATE_COLORS[i+1]}"></div>
-        <span>${label}</span>
+        <div class="legend-color-box" style="background:${PRATE_COLORS[i]}"></div>
+        <span>${a} – ${b}</span>
       </div>
     `;
   }
