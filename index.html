@@ -428,7 +428,8 @@ function buildLegendHTML(periodLabel){
 }
 
 /* ================= RASTER (alineado) + HOVER (coherente con pixel) ================= */
-function drawRaster(data){
+
+  function drawRaster(data){
   // Copias locales (NO mutar el JSON)
   let lat = data.grid.lat.slice();                 // [ny]
   let lon = data.grid.lon.map(normalizeLon);       // [nx]
@@ -474,22 +475,22 @@ function drawRaster(data){
   const ctx = canvas.getContext("2d");
   const img = ctx.createImageData(nx, ny);
 
-  // Máscara: 1 si el píxel se pintó (alpha>0), 0 si quedó transparente
+  // Máscara: 1 si el píxel se pintó (alpha>0)
   const drawn = new Uint8Array(nx * ny);
 
-  for (let i=0; i<ny; i++){
-    for (let j=0; j<nx; j++){
+  for (let i = 0; i < ny; i++){
+    for (let j = 0; j < nx; j++){
       const v = z[i][j];
       if (v == null || !isFinite(v)) continue;
 
       const rgba = getColorPrate(v);
-      if (rgba[3] === 0) continue; // transparente -> NO hover
+      if (rgba[3] === 0) continue; // transparente -> no hover
 
       // Leaflet espera “north on top”
       const yPix = latIncreasing ? (ny - 1 - i) : i;
 
-      const kPix = yPix * nx + j;   // índice del píxel (sin *4)
-      const k = kPix * 4;           // índice RGBA
+      const kPix = yPix * nx + j;  // índice de píxel (sin *4)
+      const k = kPix * 4;          // índice RGBA
 
       drawn[kPix] = 1;
 
@@ -520,7 +521,6 @@ function drawRaster(data){
 
   
   
-  
 function valueAtPixelNearest(latlng){
   if (!currentData || !currentData._render) return null;
 
@@ -547,6 +547,7 @@ function valueAtPixelNearest(latlng){
   const v = R.z[i][j];
   return (v == null || !isFinite(v)) ? null : v;
 }
+
 
 /* ================= DATA ================= */
 function loadManifest(){
