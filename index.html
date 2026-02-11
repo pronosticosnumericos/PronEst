@@ -429,7 +429,7 @@ function buildLegendHTML(periodLabel){
 
 /* ================= RASTER (alineado) + HOVER (coherente con pixel) ================= */
 
-  function drawRaster(data){
+function drawRaster(data){
   // Copias locales (NO mutar el JSON)
   let lat = data.grid.lat.slice();                 // [ny]
   let lon = data.grid.lon.map(normalizeLon);       // [nx]
@@ -475,7 +475,7 @@ function buildLegendHTML(periodLabel){
   const ctx = canvas.getContext("2d");
   const img = ctx.createImageData(nx, ny);
 
-  // Máscara: 1 si el píxel se pintó (alpha>0)
+  // máscara: 1 si el píxel se pintó (alpha>0)
   const drawn = new Uint8Array(nx * ny);
 
   for (let i = 0; i < ny; i++){
@@ -484,13 +484,13 @@ function buildLegendHTML(periodLabel){
       if (v == null || !isFinite(v)) continue;
 
       const rgba = getColorPrate(v);
-      if (rgba[3] === 0) continue; // transparente -> no hover
+      if (rgba[3] === 0) continue;
 
       // Leaflet espera “north on top”
       const yPix = latIncreasing ? (ny - 1 - i) : i;
 
-      const kPix = yPix * nx + j;  // índice de píxel (sin *4)
-      const k = kPix * 4;          // índice RGBA
+      const kPix = yPix * nx + j; // pixel index
+      const k = kPix * 4;         // rgba index
 
       drawn[kPix] = 1;
 
@@ -534,20 +534,19 @@ function valueAtPixelNearest(latlng){
 
   // Pixel del CANVAS (top-left origin)
   const jPix = Math.max(0, Math.min(R.nx - 1, Math.floor(x * R.nx)));
-  const iPix = Math.max(0, Math.min(R.ny - 1, Math.floor(y * R.ny))); // fila en canvas
+  const iPix = Math.max(0, Math.min(R.ny - 1, Math.floor(y * R.ny)));
 
-  // Si ese pixel fue transparente/no pintado, no mostramos hover
+  // máscara: si no se pintó, no hay hover
   const kPix = iPix * R.nx + jPix;
   if (R.drawn && R.drawn[kPix] === 0) return null;
 
-  // Convertir canvas -> índice del grid original (por el flip)
+  // Convertir canvas -> índice del grid original (por flip vertical)
   const i = R.latIncreasing ? (R.ny - 1 - iPix) : iPix;
   const j = jPix;
 
   const v = R.z[i][j];
   return (v == null || !isFinite(v)) ? null : v;
 }
-
 
 /* ================= DATA ================= */
 function loadManifest(){
