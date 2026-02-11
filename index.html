@@ -394,7 +394,7 @@ function getColorPrate(v){
   if (!isFinite(v) || v < 1) return [255,255,255,0];
   for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
     if (v >= PRATE_LEVELS[i] && v < PRATE_LEVELS[i+1]){
-      return hexToRGBA(PRATE_COLORS[i+1], 200);
+      return hexToRGBA(PRATE_COLORS[i+1], 255);
     }
   }
   return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 200);
@@ -505,7 +505,7 @@ function drawRaster(data){
 
   if (rasterOverlay) map.removeLayer(rasterOverlay);
   rasterOverlay = L.imageOverlay(canvas.toDataURL(), bounds, {
-    opacity: 0.85,
+    opacity: 1.0,
     interactive: false
   }).addTo(map);
 
