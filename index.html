@@ -403,23 +403,25 @@ function buildLegendHTML(periodLabel){
   let html = `<b>${VAR_LABEL} (${VAR_UNITS})</b><br>`;
   html += `<span style="font-size:11px">${periodLabel}</span><br><br>`;
   const PRATE_LABELS = [
-  "< 30", "30 – 60", "60 – 90", "90 – 120",
+  "&lt; 30", "30 – 60", "60 – 90", "90 – 120",
   "120 – 180", "180 – 240", "240 – 360", "360 – 500",
   "500 – 600", "600 – 700", "700 – 800", "800 – 1000", "> 1000"
   ];
 
   for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
+    const label = (i < PRATE_LABELS.length) ? PRATE_LABELS[i] : `${PRATE_LEVELS[i]} – ${PRATE_LEVELS[i+1]}`;
+
     html += `
       <div class="legend-row">
         <div class="legend-color-box" style="background:${PRATE_COLORS[i+1]}"></div>
-        <span>${PRATE_LEVELS[i]} – ${PRATE_LEVELS[i+1]}</span>
+        <span>${label}</span>
       </div>
     `;
   }
   html += `
     <div class="legend-row">
       <div class="legend-color-box" style="background:${PRATE_COLORS[PRATE_COLORS.length-1]}"></div>
-      <span>&gt; ${PRATE_LABELS[PRATE_LABELS.length-1]}</span>
+      <span>&gt; ${PRATE_LEVELS[PRATE_LEVELS.length-1]}</span>
     </div>
   `;
   return html;
