@@ -377,10 +377,26 @@ function setupCollapsibles(){
 
 /* ================= COLORS ================= */
 const PRATE_LEVELS = [1,30,60,90,120,180,240,360,500,600,700,800,1000];
-const PRATE_COLORS = [
-  "#ffffff", "#ffffff", "#fee391", "#fec44f", "#addd8e", "#78c679",
-  "#41ab5d", "#238443", "#1f78b4", "#225ea8", "#253494", "#54278f", "#7a0177"
+//const PRATE_COLORS = [
+//  "#ffffff", "#ffffff", "#fee391", "#fec44f", "#addd8e", "#78c679",
+//  "#41ab5d", "#238443", "#1f78b4", "#225ea8", "#253494", "#54278f", "#7a0177"
 ];
+const PRATE_COLORS = [
+  "#FFFFFF",  // 1–30
+  "#F8E8B8",  // 30–60
+  "#F8D080",  // 60–90
+  "#E8E898",  // 90–120
+  "#A0E090",  // 120–180
+  "#80E0F8",  // 180–240
+  "#38D0F8",  // 240–360
+  "#00B0F0",  // 360–500
+  "#1870B8",  // 500–600
+  "#1050A8",  // 600–700
+  "#7060D0",  // 700–800
+  "#9030C0",  // 800–1000
+  "#800080"   // >1000
+];
+  
 function hexToRGBA(hex, alpha=255){
   const c = hex.replace("#","");
   return [
@@ -391,13 +407,13 @@ function hexToRGBA(hex, alpha=255){
   ];
 }
 function getColorPrate(v){
-  if (!isFinite(v) || v < 1) return [255,255,255,0];
+  if (!isFinite(v) || v < PRATE_LEVELS[0]) return [255,255,255,0];
   for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
     if (v >= PRATE_LEVELS[i] && v < PRATE_LEVELS[i+1]){
       return hexToRGBA(PRATE_COLORS[i+1], 255);
     }
   }
-  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 200);
+  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 255);
 }
   
 function buildLegendHTML(periodLabel){
