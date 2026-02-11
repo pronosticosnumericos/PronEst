@@ -107,10 +107,27 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 
 /* ================= RESPONSIVE (MÓVIL) ================= */
 @media (max-width: 600px){
-  #site-header{ height: 64px; padding: 0 12px; }
-  .header-left img{ height: 42px; }
-  .header-text .brand{ font-size: 20px; }
-  .header-text .tagline{ font-size: 12px; font-weight: 700; }
+  #site-header{ height: 64px; padding: 0 10px; }
+  .header-left{ position: absolute; left: 10px; gap: 8px; }
+  .header-left img{ height: 38px; }
+  .header-text{
+    max-width: calc(100% - 120px); /* deja espacio para logo+botón */
+    margin: 0 auto;
+    text-align: center;
+  }
+  .header-text .brand{ font-size: 18px; line-height: 1.05; }
+  .header-text .tagline{ font-size: 11px; font-weight: 700; line-height: 1.05; }
+  .header-right{
+    position: absolute;
+    right: 10px;
+  }
+
+  .btn-contacto{
+    padding: 8px 10px;
+    font-size: 13px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
   #map{ top:64px; }
 
   #menu-panel{
