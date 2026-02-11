@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Pronóstico NMME – Lluvia acumulada (México)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet-image/leaflet-image.js"></script>
+<style>
+html, body {
+  margin:0;
+  padding:0;
+  height:100%;
+  font-family: Arial, sans-serif;
+}
+
+#control{
+  position: absolute;
+  top: 100px;   /* header (80px) + espacio */
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.95);
+  padding: 10px 14px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.25);
+  z-index: 2000;
+  font-size: 13px;
+}
+
+#map {
+  position:absolute;
+  top:80px; bottom:0; left:0; right:0;
+  z-index:1;
+}
+
+
+
+
+/* ================= HEADER ================= */
+#site-header{
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 28px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  z-index: 3000;
+}
+
+.header-left{
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-left img{
+  height: 52px;
+}
+
+.header-text .brand{
+  font-size: 32px;
+  font-weight: 800;
+  color: #2c6cb0;
+  line-height: 1.1;
+}
+
+.header-text .tagline{
+  font-size: 20px;
+  font-weight: 800;
+  color: #2c6cb0;
+}
+
+.header-right{
+  display: flex;
+  align-items: center;
+}
+
+.btn-contacto{
+  border: 1px solid #2c6cb0;
+  padding: 8px 14px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #2c6cb0;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.btn-contacto:hover{
+  background: #2c6cb0;
+  color: white;
+}
+
+
+/* ================= TOPBAR LIMPIO ================= */
+#topbar{
+  position:absolute;
+  top:100px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(255,255,255,0.97);
+  padding:12px 18px;
+  border-radius:14px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.25);
+  z-index:2000;
+  display:flex;
+  align-items:center;
+  gap:22px;
+}
+
+/* Título del menú */
+.menu-title{
+  font-size:14px;
+  font-weight:700;
+  color:#2c2c2c;
+  white-space:nowrap;
+}
+
+/* Toggle */
+.toggle-label{
+  font-size:13px;
+  color:#444;
+}
+
+/* Ajuste fino del switch */
+.switch{
+  width:46px;
+  height:24px;
+}
+
+.slider-toggle:before{
+  width:20px;
+  height:20px;
+}
+
+
+/* lado derecho */
+.menu-right{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.period-label{
+  font-size:12px;
+  color:#555;
+}
+
+/* estado */
+.status-text{
+  font-size:11px;
+  color:#777;
+  margin-left:6px;
+}
+
+/* ================= PRODUCT MENU ================= */
+
+#menu-panel{
+  position:absolute;
+  top:110px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(255,255,255,0.96);
+  padding:16px 22px;
+  border-radius:14px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.18);
+  z-index:2000;
+  min-width:360px;
+}
+
+.menu-title{
+  font-size:15px;
+  font-weight:700;
+  color:#1f3b5c;
+  margin-bottom:10px;
+}
+
+.menu-title span{
+  display:block;
+  font-size:12px;
+  font-weight:500;
+  color:#6b7c93;
+}
+
+.menu-controls{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+
+/* Period selector */
+.period-container{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.period-container label{
+  font-size:12px;
+  font-weight:600;
+  color:#444;
+}
+
+.period-container select{
+  font-size:12px;
+  padding:4px 6px;
+  border-radius:6px;
+  border:1px solid #ccc;
+  background:white;
+}
+
+/* Toggle refinado */
+.toggle-container{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  font-weight:600;
+  color:#333;
+}
+
+.title{font-weight:700}
+label{font-weight:700}
+select,button,input[type=range]{font-size:13px;padding:3px 6px}
+
+#hoverBox{
+  position:fixed;
+  z-index:2000;
+  background:rgba(255,255,255,0.95);
+  padding:6px 8px;
+  border-radius:6px;
+  box-shadow:0 0 6px rgba(0,0,0,0.3);
+  font-size:11px;
+  pointer-events:none;
+  display:none;
+}
+
+.legend{
+  background:white;
+  padding:8px 10px;
+  font-size:12px;
+  border-radius:8px;
+  box-shadow:0 0 15px rgba(0,0,0,0.3);
+}
+.legend-row{display:flex;align-items:center}
+.legend-color-box{
+  width:16px;
+  height:16px;
+  margin-right:6px;
+  border:1px solid #ccc;
+}
+
+/* ===== TOGGLE MENSUAL / BIMESTRAL ===== */
+.toggle-container{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+  font-weight:600;
+}
+
+.switch{
+  position:relative;
+  display:inline-block;
+  width:44px;
+  height:22px;
+}
+
+.switch input{
+  opacity:0;
+  width:0;
+  height:0;
+}
+
+.slider-toggle{
+  position:absolute;
+  cursor:pointer;
+  top:0; left:0; right:0; bottom:0;
+  background:#ccc;
+  transition:.3s;
+  border-radius:22px;
+}
+
+.slider-toggle:before{
+  position:absolute;
+  content:"";
+  height:18px;
+  width:18px;
+  left:2px;
+  bottom:2px;
+  background:white;
+  transition:.3s;
+  border-radius:50%;
+}
+
+.switch input:checked + .slider-toggle{
+  background:#2c6cb0;
+}
+
+.switch input:checked + .slider-toggle:before{
+  transform:translateX(22px);
+}
+
+/* ===== RASTER NÍTIDO ===== */
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+</style>
+</head>
+
+<body>
+<header id="site-header">
+  <div class="header-left">
+    <img src="logo2.jpeg" alt="ClimaproAgro logo">
+    <div class="header-text">
+      <div class="brand">ClimaproAgro</div>
+      <div class="tagline">Información Climática para la Agricultura</div>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <a href="https://www.climaproagro.com/contacto" class="btn-contacto">
+      Contacto
+    </a>
+  </div>
+</header>
+
+
+<div id="menu-panel">
+  <div class="menu-title">
+    Pronóstico NMME – Lluvia acumulada
+    <span>México</span>
+  </div>
+
+  <div class="menu-controls">
+    <div class="toggle-container">
+      <span>Mensual</span>
+      <label class="switch">
+        <input type="checkbox" id="typeToggle">
+        <span class="slider-toggle"></span>
+      </label>
+      <span>Bimestral</span>
+    </div>
+
+    <div class="period-container">
+      <label for="periodSelect">Periodo</label>
+      <select id="periodSelect"></select>
+    </div>
+  </div>
+</div>
+
+
+
+
+<div id="map"></div>
+<div id="hoverBox"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+let currentData = null;
+/* ================= CONFIG ================= */
+const VAR_LABEL = "Lluvia acumulada";
+const VAR_UNITS = "mm";
+
+let currentType = "mensual";
+let steps = [];
+let map, rasterOverlay, legend;
+
+/* ================= UTILS ================= */
+function monthNameEs(m){
+  return ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1];
+}
+
+function prettyFromName(f){
+  let m = f.match(/_(\d{6})_(\d{6})/);
+  if (m){
+    return `${monthNameEs(+m[1].slice(4))}–${monthNameEs(+m[2].slice(4))} ${m[1].slice(0,4)}`;
+  }
+  m = f.match(/_(\d{6})/);
+  if (m){
+    return `${monthNameEs(+m[1].slice(4))} ${m[1].slice(0,4)}`;
+  }
+  return f;
+}
+
+/* ================= MAP ================= */
+function initMap(){
+  map = L.map("map").setView([23,-102],5);
+  
+  // ================= BASE MAP =================
+  L.tileLayer(
+   "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
+   { attribution: "© OpenStreetMap, © CARTO" }
+  ).addTo(map);
+  
+  L.tileLayer(
+   "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
+   { opacity: 0.6 }
+  ).addTo(map);
+  
+  L.tileLayer(
+   "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
+   { opacity: 0.9 }
+  ).addTo(map);
+  
+  L.tileLayer(
+   "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
+   { opacity: 0.15 }
+  ).addTo(map);
+
+
+  legend = L.control({ position: "bottomright" });
+
+  legend.onAdd = function(){
+    const div = L.DomUtil.create("div", "legend");
+    div.innerHTML = "Cargando…";
+    return div;
+  };
+
+  legend.addTo(map);
+
+  // ===== HOVER =====
+  map.on("mousemove", e => {
+    if (!currentData) return;
+
+    
+    
+    const val = valueAtPixel(e.latlng);
+
+    const box = document.getElementById("hoverBox");
+
+    if (val === null){
+      box.style.display = "none";
+      return;
+    }
+
+    box.innerHTML = `
+      <b>Lluvia acumulada</b><br>
+      Valor: <b>${val.toFixed(1)} mm</b><br>
+      Lat: ${e.latlng.lat.toFixed(2)}°<br>
+      Lon: ${e.latlng.lng.toFixed(2)}°<br>
+      Tipo: ${currentType === "mensual" ? "Mensual" : "Bimestral"}
+    `;
+
+    box.style.left = (e.originalEvent.pageX + 15) + "px";
+    box.style.top  = (e.originalEvent.pageY + 15) + "px";
+    box.style.display = "block";
+  });
+
+  map.on("mouseout", () => {
+    document.getElementById("hoverBox").style.display = "none";
+  });
+}
+
+
+/* ================= COLORS ================= */
+function getColorPrate(v){
+  if (!isFinite(v) || v < 1){
+    return [255,255,255,0]; // transparente
+  }
+
+  for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
+    if (v >= PRATE_LEVELS[i] && v < PRATE_LEVELS[i+1]){
+      return hexToRGBA(PRATE_COLORS[i+1], 200);
+    }
+  }
+
+  // >= último nivel
+  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 200);
+}
+
+
+function hexToRGBA(hex, alpha=255){
+  const c = hex.replace("#","");
+  return [
+    parseInt(c.substring(0,2),16),
+    parseInt(c.substring(2,4),16),
+    parseInt(c.substring(4,6),16),
+    alpha
+  ];
+}
+
+
+
+const PRATE_LEVELS = [1,30,60,90,120,180,240,360,500,600,700,800,1000];
+const PRATE_COLORS = [
+  "#ffffff", // < 1
+  "#ffffff", // 1–30  ← BLANCO
+  "#fee391", // 30–60
+  "#fec44f", // 60–90
+  "#addd8e", // 90–120
+  "#78c679", // 120–180
+  "#41ab5d", // 180–240
+  "#238443", // 240–360
+  "#1f78b4", // 360–500
+  "#225ea8", // 500–600
+  "#253494", // 600–700
+  "#54278f", // 700–800
+  "#7a0177"  // ≥ 800
+];
+
+
+function buildLegendHTML(periodLabel){
+  let html = `<b>Lluvia acumulada (mm)</b><br>`;
+  html += `<span style="font-size:11px">${periodLabel}</span><br><br>`;
+
+
+  for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
+    html += `
+      <div class="legend-row">
+        <div class="legend-color-box" style="background:${PRATE_COLORS[i+1]}"></div>
+        <span>${PRATE_LEVELS[i]} – ${PRATE_LEVELS[i+1]}</span>
+      </div>
+    `;
+  }
+
+  html += `
+    <div class="legend-row">
+      <div class="legend-color-box" style="background:${PRATE_COLORS[PRATE_COLORS.length-1]}"></div>
+      <span>&gt; ${PRATE_LEVELS[PRATE_LEVELS.length-1]}</span>
+    </div>
+  `;
+
+  return html;
+}
+
+/* ================= RENDER ================= */
+
+function valueAtPixel(latlng){
+  if (!currentData || !currentData._img) return null;
+
+  const img = currentData._img;
+  const bounds = img.bounds;
+
+  const x = (latlng.lng - bounds.getWest()) /
+            (bounds.getEast() - bounds.getWest());
+
+  const y = (bounds.getNorth() - latlng.lat) /
+            (bounds.getNorth() - bounds.getSouth());
+
+  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+
+  const fx = x * (img.width - 1);
+  let fy = y * (img.height - 1);
+  const latIncreasing = currentData.grid.lat[1] > currentData.grid.lat[0];
+  if (latIncreasing) {
+   fy = (img.height - 1) - fy; 
+  }
+
+
+  const i0 = Math.floor(fy);
+  const j0 = Math.floor(fx);
+  const i1 = i0 + 1;
+  const j1 = j0 + 1;
+
+  if (i1 >= img.height || j1 >= img.width) return null;
+
+  const g = currentData.grid.data;
+
+  const q11 = g[i0][j0];
+  const q21 = g[i0][j1];
+  const q12 = g[i1][j0];
+  const q22 = g[i1][j1];
+
+  // Si TODAS son inválidas → no hay dato
+  if ([q11,q21,q12,q22].every(v => v == null || !isFinite(v))) return null;
+
+  const dx = fx - j0;
+  const dy = fy - i0;
+
+  const v =
+    q11 * (1 - dx) * (1 - dy) +
+    q21 * dx       * (1 - dy) +
+    q12 * (1 - dx) * dy +
+    q22 * dx       * dy;
+
+  return isFinite(v) ? v : null;
+}
+
+
+function normalizeLon(lon){
+  // Convierte 0–360 → -180–180
+  return (lon > 180) ? lon - 360 : lon;
+}
+
+
+function drawRaster(data){
+  const lat = data.grid.lat;
+  const lon = data.grid.lon.map(normalizeLon);
+  const z   = data.grid.data;
+
+  const ny = lat.length;
+  const nx = lon.length;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = nx;
+  canvas.height = ny;
+  
+  canvas.style.width  = (nx * 2) + "px";
+  canvas.style.height = (ny * 2) + "px";
+
+  const ctx = canvas.getContext("2d");
+  const img = ctx.createImageData(nx, ny);
+
+  const latIncreasing = lat[1] > lat[0];
+
+  for (let i = 0; i < ny; i++){
+    for (let j = 0; j < nx; j++){
+      const v = z[i][j];
+      if (v == null || !isFinite(v)) continue;
+
+      const rgba = getColorPrate(v);
+      const y = latIncreasing ? (ny + 9 - i) : i;
+      const k = (y * nx + j) * 4;
+
+      img.data[k]   = rgba[0];
+      img.data[k+1] = rgba[1];
+      img.data[k+2] = rgba[2];
+      img.data[k+3] = rgba[3];
+    }
+  }
+
+  ctx.putImageData(img, 0, 0);
+
+  const dLat = Math.abs(lat[1] - lat[0]);
+  const dLon = Math.abs(lon[1] - lon[0]);
+
+  const bounds = [
+    [lat[0] - dLat / 2, lon[0] - dLon / 2],
+    [lat[lat.length - 1] + dLat / 2, lon[lon.length - 1] + dLon / 2]
+  ];
+
+  if (rasterOverlay) map.removeLayer(rasterOverlay);
+  rasterOverlay = L.imageOverlay(canvas.toDataURL(), bounds, {opacity:0.85, interactive: false, crossOrigin: false}).addTo(map);
+  rasterOverlay.getElement().style.imageRendering = "pixelated";
+  currentData._img = {
+    width: nx,
+    height: ny,
+    bounds: rasterOverlay.getBounds()
+  };
+}
+/* ================= DATA ================= */
+function loadManifest(){
+  fetch(`${currentType}/auto_manifest.json`)
+    .then(r => r.json())
+    .then(m => {
+      steps = m.files || m;
+
+      const sel = document.getElementById("periodSelect");
+      sel.innerHTML = steps.map(f => 
+        `<option value="${f}">${prettyFromName(f)}</option>`
+      ).join("");
+
+      loadGrid(); // carga el primero
+    });
+}
+
+
+
+function loadGrid(){
+  const sel = document.getElementById("periodSelect");
+  if (!sel.value) return;
+
+  fetch(`${currentType}/${sel.value}`)
+    .then(r => r.json())
+    .then(json => {
+      currentData = json;
+      drawRaster(json);
+
+      document.querySelector(".legend").innerHTML =
+        buildLegendHTML(
+          `${currentType === "mensual" ? "Mensual" : "Bimestral"} – ${prettyFromName(sel.value)}`
+        );
+    });
+}
+
+function valueAtLatLon(lat, lon){
+  if (!currentData || !currentData._meta) return null;
+
+  const { latMin, latMax, lonMin, lonMax, dLat, dLon, nx, ny } = currentData._meta;
+
+  // Fuera del dominio
+  if (lat < latMin || lat > latMax || lon < lonMin || lon > lonMax){
+    return null;
+  }
+
+  // Índices aproximados (nearest-neighbor)
+  const i = Math.round((lat - latMin) / dLat);
+  const j = Math.round((lon - lonMin) / dLon);
+
+  if (i < 0 || i >= ny || j < 0 || j >= nx) return null;
+
+  const val = currentData.grid.data[i][j];
+
+  // Filtrar valores inválidos o muy bajos
+  if (val == null || !isFinite(val) || val < 1){
+    return null;
+  }
+
+  return val;
+}
+
+function valueAtLatLonBilinear(lat, lon){
+  if (!currentData || !currentData._meta) return null;
+
+  const g = currentData.grid;
+  const m = currentData._meta;
+
+  if (lat < m.latMin || lat > m.latMax || lon < m.lonMin || lon > m.lonMax){
+    return null;
+  }
+
+  const latIncreasing = g.lat[1] > g.lat[0];
+
+  let fy = (lat - m.latMin) / m.dLat;
+  if (latIncreasing){
+    fy = (m.ny - 1) - fy;
+  }
+
+  const fx = (lon - m.lonMin) / m.dLon;
+
+  const i0 = Math.floor(fy);
+  const j0 = Math.floor(fx);
+  const i1 = i0 + 1;
+  const j1 = j0 + 1;
+
+  if (i0 < 0 || j0 < 0 || i1 >= m.ny || j1 >= m.nx){
+    return null;
+  }
+
+  const q11 = g.data[i0][j0];
+  const q21 = g.data[i0][j1];
+  const q12 = g.data[i1][j0];
+  const q22 = g.data[i1][j1];
+
+  if ([q11,q21,q12,q22].some(v => v == null || !isFinite(v))){
+    return null;
+  }
+
+  const dx = fx - j0;
+  const dy = fy - i0;
+
+  const v =
+    q11 * (1 - dx) * (1 - dy) +
+    q21 * dx       * (1 - dy) +
+    q12 * (1 - dx) * dy +
+    q22 * dx       * dy;
+
+  return (v < 1 || !isFinite(v)) ? null : v;
+}
+
+
+
+/* ================= EVENTS ================= */
+
+// Cuando el usuario cambia el menú de periodos
+
+// Cuando el usuario mueve el slider
+
+document.getElementById("typeToggle").onchange = e =>{
+  currentType = e.target.checked ? "bimestral" : "mensual";
+  loadManifest();
+};
+
+document.getElementById("periodSelect").onchange = loadGrid;
+
+window.onload = ()=>{
+  initMap();
+  loadManifest();
+};
+
+document.getElementById("btnExport").onclick = () => {
+
+  leafletImage(map, function(err, canvas){
+    if (err){
+      console.error(err);
+      alert("Error al exportar mapa");
+      return;
+    }
+
+    // Crear nombre del archivo
+    const tipo = currentType === "mensual" ? "mensual" : "bimestral";
+    const fecha = new Date().toISOString().slice(0,10);
+    const filename = `NMME_lluvia_${tipo}_${fecha}.png`;
+
+    // Descargar
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+};
+
+</script>
+
+</body>
+</html>
+
