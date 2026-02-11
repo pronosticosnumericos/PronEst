@@ -237,7 +237,7 @@ async function fetchJsonSafe(url){
 
 /* ================= MAP ================= */
 function initMap(){
-  map = L.map("map", { zoomControl: true, minZoom: 5.5, maxZoom: 10, maxBoundsViscosity: 1.0 });//.setView([23,-102],5);
+  map = L.map("map", { zoomControl: true, minZoom: 5, maxZoom: 10, maxBoundsViscosity: 1.0 });//.setView([23,-102],5);
 
   L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
