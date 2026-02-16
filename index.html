@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+from pathlib import Path
+
+html = r"""<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
@@ -94,7 +96,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 .legend-row{ display:flex; align-items:center; }
 .legend-color-box{ width:16px; height:16px; margin-right:6px; border:1px solid #ccc; border-radius:3px; }
 
-/* Raster: nítido + evita checkerboard en iOS */
+/* Imagen del raster: nítida + evita "checkerboard" en iOS */
 .forecast-raster{
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -178,14 +180,28 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* ================= Ajustes finos (en CELDAS) ================= */
-const HALF_CELL = 0.5;        // lon/lat son centros
-const LAT_SHIFT_CELLS = -10.5;  // ej. -0.5 si está corrido al norte
-const LON_SHIFT_CELLS = 0.5;  // ej. -0.5 si está corrido al este
+/* =========================================================
+   ✅ ESTE ES EL ARCHIVO "LIMPIO" QUE CORRIGE:
+   1) desfase por "half-cell" / bounds mal calculado
+   2) hover que no coincide con colores (usa vecino más cercano)
+   3) cuadriculado / piezas faltantes en iOS (workaround Leaflet+iOS)
+   ---------------------------------------------------------
+   Si el raster se ve corrido EXACTAMENTE ~media celda:
+     LAT_SHIFT_CELLS = -0.5   (si está al norte, muévelo al sur)
+     LON_SHIFT_CELLS = -0.5   (si está al este, muévelo al oeste)
+   ========================================================= */
 
-/* iOS: workaround checkerboard */
+// 🔧 Ajustes finos (en unidades de CELDA, no en grados)
+const HALF_CELL = 0.5;          // 0.5 = lon/lat son centros (lo normal)
+const LAT_SHIFT_CELLS = 0.0;    // ej. -0.5 (mover medio pixel al SUR)
+const LON_SHIFT_CELLS = 0.0;    // ej. -0.5 (mover medio pixel al OESTE)
+
+// iOS: evita el bug de "checkerboard" (cuadros faltantes)
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-if (IS_IOS && L && L.Browser){ L.Browser.any3d = false; }
+if (IS_IOS && L && L.Browser){
+  // Leaflet decide si usa translate3d; desactivarlo suele arreglar el bug en Safari iOS
+  L.Browser.any3d = false;
+}
 
 /* ================= CONFIG ================= */
 let currentData = null;
@@ -197,14 +213,19 @@ let steps = [];
 let map, rasterOverlay, legend;
 let rasterBlobUrl = null;
 
+// Boundaries (CORS OK)
 const URL_MX_STATES  = "https://raw.githubusercontent.com/strotgen/mexico-leaflet/master/states.geojson";
 const URL_MX_COUNTRY = "https://raw.githubusercontent.com/johan/world.geo.json/master/countries/MEX.geo.json";
+
+// Si quieres el borde nacional, pon true
 const DRAW_COUNTRY_BORDER = false;
 const STATE_LINE_WEIGHT   = 1.0;
 const COUNTRY_LINE_WEIGHT = 1.5;
 
 /* ================= UTILS ================= */
-function monthNameEs(m){ return ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1]; }
+function monthNameEs(m){
+  return ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1];
+}
 function prettyFromName(f){
   let m = f.match(/_(\d{6})_(\d{6})/);
   if (m) return `${monthNameEs(+m[1].slice(4))}–${monthNameEs(+m[2].slice(4))} ${m[1].slice(0,4)}`;
@@ -212,32 +233,53 @@ function prettyFromName(f){
   if (m) return `${monthNameEs(+m[1].slice(4))} ${m[1].slice(0,4)}`;
   return f;
 }
-function normalizeLon(lon){ return (lon > 180) ? lon - 360 : lon; }
+function normalizeLon(lon){
+  // 0–360 -> -180–180
+  return (lon > 180) ? lon - 360 : lon;
+}
 async function fetchJsonSafe(url, cacheMode="force-cache"){
   const res = await fetch(url, { cache: cacheMode });
   const txt = await res.text();
   if (!res.ok) throw new Error(`HTTP ${res.status} al descargar: ${url}`);
   const t = txt.trim();
-  if (!(t.startsWith("{") || t.startsWith("["))) throw new Error(`No parece JSON: ${url}`);
+  if (!(t.startsWith("{") || t.startsWith("["))){
+    throw new Error(`No parece JSON: ${url}\nInicio: ${t.slice(0,120)}`);
+  }
   return JSON.parse(t);
 }
 
 /* ================= MAP ================= */
 function initMap(){
   map = L.map("map", {
-    zoomControl: true, minZoom: 4, maxZoom: 10,
-    zoomAnimation: !IS_IOS, fadeAnimation: !IS_IOS, markerZoomAnimation: !IS_IOS
+    zoomControl: true,
+    minZoom: 4,
+    maxZoom: 10,
+    zoomAnimation: !IS_IOS,
+    fadeAnimation: !IS_IOS,
+    markerZoomAnimation: !IS_IOS
   }).setView([23,-102],5);
 
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
-    { attribution: "© OpenStreetMap, © CARTO" }).addTo(map);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.6 }).addTo(map);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.9 }).addTo(map);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.15 }).addTo(map);
+  L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
+    { attribution: "© OpenStreetMap, © CARTO" }
+  ).addTo(map);
 
+  L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
+    { opacity: 0.6 }
+  ).addTo(map);
+
+  L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
+    { opacity: 0.9 }
+  ).addTo(map);
+
+  L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
+    { opacity: 0.15 }
+  ).addTo(map);
+
+  // Legend control
   legend = L.control({ position: "bottomright" });
   legend.onAdd = function(){
     const div = L.DomUtil.create("div", "legend");
@@ -254,11 +296,18 @@ function initMap(){
   };
   legend.addTo(map);
 
+  // Hover: vecino más cercano (siempre coincide con el pixel)
   map.on("mousemove", e => {
     if (!currentData || !currentData._render) return;
+
     const v = valueAtPixelNearest(e.latlng);
     const box = document.getElementById("hoverBox");
-    if (v === null){ box.style.display = "none"; return; }
+
+    if (v === null){
+      box.style.display = "none";
+      return;
+    }
+
     box.innerHTML = `
       <b>${VAR_LABEL}</b><br>
       Valor: <b>${v.toFixed(1)} ${VAR_UNITS}</b><br>
@@ -270,14 +319,18 @@ function initMap(){
     box.style.top  = (e.originalEvent.pageY + 15) + "px";
     box.style.display = "block";
   });
-  map.on("mouseout", () => { document.getElementById("hoverBox").style.display = "none"; });
+
+  map.on("mouseout", () => {
+    document.getElementById("hoverBox").style.display = "none";
+  });
 }
 
-/* ================= México ================= */
+/* ================= México (estados + borde opcional + limitar vista) ================= */
 let mxStatesLayer = null;
 let mxCountryLayer = null;
+
 async function loadMexicoBoundaries(){
-  try{
+  try {
     const [countryGeojson, statesGeojson] = await Promise.all([
       fetchJsonSafe(URL_MX_COUNTRY),
       fetchJsonSafe(URL_MX_STATES)
@@ -301,13 +354,13 @@ async function loadMexicoBoundaries(){
     const boundsMx = (mxCountryLayer ? mxCountryLayer.getBounds() : mxStatesLayer.getBounds());
     map.fitBounds(boundsMx.pad(0.03));
     map.setMaxBounds(boundsMx.pad(0.08));
-  } catch(err){
+  } catch (err){
     console.error("[Mexico boundaries]", err);
-    alert("No pude cargar límites de México/estados.");
+    alert("No pude cargar límites de México/estados. Revisa tu conexión o las URLs de GeoJSON.");
   }
 }
 
-/* ================= Collapsibles ================= */
+/* ================= Panel colapsable (móvil) + leyenda colapsable ================= */
 function setupCollapsibles(){
   const menuPanel = document.getElementById("menu-panel");
   const menuBody  = document.getElementById("menuBody");
@@ -319,7 +372,11 @@ function setupCollapsibles(){
   }
 
   const isMobile = window.matchMedia && window.matchMedia("(max-width: 600px)").matches;
-  if (isMobile){ menuBody.classList.add("is-collapsed"); menuBtn.textContent = "☰"; }
+
+  if (isMobile){
+    menuBody.classList.add("is-collapsed");
+    menuBtn.textContent = "☰";
+  }
 
   menuBtn.addEventListener("click", () => {
     const collapsed = menuBody.classList.toggle("is-collapsed");
@@ -328,6 +385,7 @@ function setupCollapsibles(){
 
   const legendEl = document.querySelector(".legend");
   if (!legendEl) return;
+
   const legendBtn  = legendEl.querySelector(".legend-toggle");
   const legendBody = legendEl.querySelector(".legend-body");
 
@@ -335,6 +393,7 @@ function setupCollapsibles(){
     legendBody.classList.add("is-collapsed");
     if (legendBtn) legendBtn.textContent = "Mostrar";
   }
+
   if (legendBtn && legendBody){
     legendBtn.addEventListener("click", () => {
       const collapsed = legendBody.classList.toggle("is-collapsed");
@@ -345,34 +404,55 @@ function setupCollapsibles(){
 
 /* ================= COLORS ================= */
 const PRATE_LEVELS = [1,30,60,90,120,180,240,360,500,600,700,800,1000];
-const PRATE_COLORS = ["#ffffff","#ffffff","#fee391","#fec44f","#addd8e","#78c679","#41ab5d","#238443","#1f78b4","#225ea8","#253494","#54278f","#7a0177"];
+const PRATE_COLORS = [
+  "#ffffff", "#ffffff", "#fee391", "#fec44f", "#addd8e", "#78c679",
+  "#41ab5d", "#238443", "#1f78b4", "#225ea8", "#253494", "#54278f", "#7a0177"
+];
 function hexToRGBA(hex, alpha=255){
   const c = hex.replace("#","");
-  return [parseInt(c.substring(0,2),16),parseInt(c.substring(2,4),16),parseInt(c.substring(4,6),16),alpha];
+  return [
+    parseInt(c.substring(0,2),16),
+    parseInt(c.substring(2,4),16),
+    parseInt(c.substring(4,6),16),
+    alpha
+  ];
 }
 function getColorPrate(v){
   if (!isFinite(v) || v < 1) return [255,255,255,0];
-  for (let i=0;i<PRATE_LEVELS.length-1;i++){
-    if (v>=PRATE_LEVELS[i] && v<PRATE_LEVELS[i+1]) return hexToRGBA(PRATE_COLORS[i+1], 200);
+  for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
+    if (v >= PRATE_LEVELS[i] && v < PRATE_LEVELS[i+1]){
+      return hexToRGBA(PRATE_COLORS[i+1], 200);
+    }
   }
-  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length-1], 200);
+  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 200);
 }
 function buildLegendHTML(periodLabel){
   let html = `<b>${VAR_LABEL} (${VAR_UNITS})</b><br>`;
   html += `<span style="font-size:11px">${periodLabel}</span><br><br>`;
-  for (let i=0;i<PRATE_LEVELS.length-1;i++){
-    html += `<div class="legend-row"><div class="legend-color-box" style="background:${PRATE_COLORS[i+1]}"></div><span>${PRATE_LEVELS[i]} – ${PRATE_LEVELS[i+1]}</span></div>`;
+  for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
+    html += `
+      <div class="legend-row">
+        <div class="legend-color-box" style="background:${PRATE_COLORS[i+1]}"></div>
+        <span>${PRATE_LEVELS[i]} – ${PRATE_LEVELS[i+1]}</span>
+      </div>
+    `;
   }
-  html += `<div class="legend-row"><div class="legend-color-box" style="background:${PRATE_COLORS[PRATE_COLORS.length-1]}"></div><span>&gt; ${PRATE_LEVELS[PRATE_LEVELS.length-1]}</span></div>`;
+  html += `
+    <div class="legend-row">
+      <div class="legend-color-box" style="background:${PRATE_COLORS[PRATE_COLORS.length-1]}"></div>
+      <span>&gt; ${PRATE_LEVELS[PRATE_LEVELS.length-1]}</span>
+    </div>
+  `;
   return html;
 }
 
-/* ================= Raster ================= */
+/* ================= RASTER (bounds correctos + hover consistente) ================= */
 function computeStep(arr){
-  if (!arr || arr.length<2) return 0;
-  const diffs=[];
+  if (!arr || arr.length < 2) return 0;
+  // paso robusto: usa la mediana de diffs (evita ruido)
+  const diffs = [];
   for (let i=1;i<arr.length;i++){
-    const d=arr[i]-arr[i-1];
+    const d = arr[i]-arr[i-1];
     if (isFinite(d) && d!==0) diffs.push(Math.abs(d));
   }
   diffs.sort((a,b)=>a-b);
@@ -380,123 +460,175 @@ function computeStep(arr){
 }
 
 function drawRaster(data){
+  // Copias locales
   let lat = data.grid.lat.slice();
   let lon = data.grid.lon.map(normalizeLon);
-  let z   = data.grid.data;
+  let z   = data.grid.data; // [ny][nx]
 
-  const ny = lat.length, nx = lon.length;
+  const ny = lat.length;
+  const nx = lon.length;
 
-  let lonIncreasing=true;
-  for (let j=1;j<nx;j++){ if (!(lon[j]>lon[j-1])) { lonIncreasing=false; break; } }
+  // 1) Lon creciente (si no, reordenar y reordenar z)
+  let lonIncreasing = true;
+  for (let j=1; j<nx; j++){
+    if (!(lon[j] > lon[j-1])) { lonIncreasing = false; break; }
+  }
   if (!lonIncreasing){
     const idx = lon.map((v,i)=>[v,i]).sort((a,b)=>a[0]-b[0]).map(p=>p[1]);
-    lon = idx.map(i=>lon[i]);
-    z   = z.map(row=>idx.map(j=>row[j]));
+    lon = idx.map(i => lon[i]);
+    z   = z.map(row => idx.map(j => row[j]));
   }
 
+  // 2) Paso (celda) en grados
   const dLat = computeStep(lat);
   const dLon = computeStep(lon);
 
-  const latInc = (ny>1) ? (lat[1]>lat[0]) : true;
-
+  // 3) Bounds usando PRIMER y ÚLTIMO centro (no min/max + spread)
+  const latInc = (ny>1) ? (lat[1] > lat[0]) : true;
   const lon0 = lon[0], lonN = lon[nx-1];
-  const south0 = latInc ? lat[0] : lat[ny-1];
-  const north0 = latInc ? lat[ny-1] : lat[0];
 
-  const west  = lon0 - dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
-  const east  = lonN + dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
-  const south = south0 - dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
-  const north = north0 + dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
+  const south0 = latInc ? lat[0]      : lat[ny-1];
+  const north0 = latInc ? lat[ny-1]   : lat[0];
+
+  let west  = lon0 - dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
+  let east  = lonN + dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
+  let south = south0 - dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
+  let north = north0 + dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
 
   const bounds = [[south, west],[north, east]];
 
+  // 4) Render a canvas
   const canvas = document.createElement("canvas");
-  canvas.width=nx; canvas.height=ny;
-  const ctx = canvas.getContext("2d");
+  canvas.width  = nx;
+  canvas.height = ny;
+  const ctx = canvas.getContext("2d", { willReadFrequently: false });
   const img = ctx.createImageData(nx, ny);
 
-  for (let i=0;i<ny;i++){
-    for (let j=0;j<nx;j++){
-      const v=z[i][j];
-      if (v==null || !isFinite(v)) continue;
-      const rgba=getColorPrate(v);
-      const yPix = latInc ? (ny-1-i) : i;
-      const k=(yPix*nx+j)*4;
-      img.data[k]=rgba[0]; img.data[k+1]=rgba[1]; img.data[k+2]=rgba[2]; img.data[k+3]=rgba[3];
+  for (let i=0; i<ny; i++){
+    for (let j=0; j<nx; j++){
+      const v = z[i][j];
+      if (v == null || !isFinite(v)) continue;
+
+      const rgba = getColorPrate(v);
+
+      // “north on top” (si lat está creciente, invertimos)
+      const yPix = latInc ? (ny - 1 - i) : i;
+      const k = (yPix * nx + j) * 4;
+
+      img.data[k]   = rgba[0];
+      img.data[k+1] = rgba[1];
+      img.data[k+2] = rgba[2];
+      img.data[k+3] = rgba[3];
     }
   }
-  ctx.putImageData(img,0,0);
+  ctx.putImageData(img, 0, 0);
 
-  canvas.toBlob(blob=>{
+  // 5) Usar Blob URL (mejor que dataURL en Safari iOS)
+  canvas.toBlob(blob => {
     if (!blob) return;
 
+    // limpiar overlay previo + blob URL previo
     if (rasterOverlay) map.removeLayer(rasterOverlay);
-    if (rasterBlobUrl){ URL.revokeObjectURL(rasterBlobUrl); rasterBlobUrl=null; }
+    if (rasterBlobUrl){
+      URL.revokeObjectURL(rasterBlobUrl);
+      rasterBlobUrl = null;
+    }
 
     rasterBlobUrl = URL.createObjectURL(blob);
-    rasterOverlay = L.imageOverlay(rasterBlobUrl, bounds, { opacity:0.85, interactive:false, className:"forecast-raster" }).addTo(map);
+    rasterOverlay = L.imageOverlay(rasterBlobUrl, bounds, {
+      opacity: 0.85,
+      interactive: false,
+      className: "forecast-raster"
+    }).addTo(map);
 
+    // iOS: fuerza repaint (parpadeo mínimo)
     if (IS_IOS){
-      const el=rasterOverlay.getElement();
+      const el = rasterOverlay.getElement();
       if (el){
-        requestAnimationFrame(()=>{ el.style.opacity="0.84"; requestAnimationFrame(()=>{ el.style.opacity="0.85"; }); });
+        el.style.webkitBackfaceVisibility = "hidden";
+        el.style.backfaceVisibility = "hidden";
+        requestAnimationFrame(()=>{ el.style.opacity = "0.84"; requestAnimationFrame(()=>{ el.style.opacity="0.85"; }); });
       }
     }
 
-    currentData._render = { z, nx, ny, latIncreasing: latInc, bounds: rasterOverlay.getBounds() };
-  },"image/png");
+    // Guardar render EXACTO para hover
+    currentData._render = {
+      z: z,
+      nx: nx,
+      ny: ny,
+      latIncreasing: latInc,
+      bounds: rasterOverlay.getBounds()
+    };
+  }, "image/png");
 }
 
 function valueAtPixelNearest(latlng){
-  const R=currentData?currentData._render:null;
+  const R = currentData? currentData._render : null;
   if (!R) return null;
-  const b=R.bounds;
 
-  const x=(latlng.lng-b.getWest())/(b.getEast()-b.getWest());
-  const y=(b.getNorth()-latlng.lat)/(b.getNorth()-b.getSouth());
-  if (x<0||x>1||y<0||y>1) return null;
+  const b = R.bounds;
 
-  const xPix=x*(R.nx-1);
-  const yPix=y*(R.ny-1);
+  const x = (latlng.lng - b.getWest()) / (b.getEast() - b.getWest());
+  const y = (b.getNorth() - latlng.lat) / (b.getNorth() - b.getSouth());
+  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
 
-  const iFloat = R.latIncreasing ? ((R.ny-1)-yPix) : yPix;
+  // coords de pixel en la imagen (top-left)
+  const xPix = x * (R.nx - 1);
+  const yPix = y * (R.ny - 1);
+
+  // convertir a índice i del grid original
+  const iFloat = R.latIncreasing ? ((R.ny - 1) - yPix) : yPix;
   const jFloat = xPix;
 
-  const i=Math.round(iFloat), j=Math.round(jFloat);
-  if (i<0||j<0||i>=R.ny||j>=R.nx) return null;
+  const i = Math.round(iFloat);
+  const j = Math.round(jFloat);
 
-  const v=R.z[i][j];
-  return (v==null||!isFinite(v))?null:v;
+  if (i < 0 || j < 0 || i >= R.ny || j >= R.nx) return null;
+
+  const v = R.z[i][j];
+  return (v == null || !isFinite(v)) ? null : v;
 }
 
 /* ================= DATA ================= */
 function loadManifest(){
+  // el manifest conviene NO caché, porque cambia con nuevos pronósticos
   fetchJsonSafe(`${currentType}/auto_manifest.json`, "no-store")
-    .then(m=>{
-      steps=m.files||m;
-      const sel=document.getElementById("periodSelect");
-      sel.innerHTML=steps.map(f=>`<option value="${f}">${prettyFromName(f)}</option>`).join("");
+    .then(m => {
+      steps = m.files || m;
+      const sel = document.getElementById("periodSelect");
+      sel.innerHTML = steps.map(f => `<option value="${f}">${prettyFromName(f)}</option>`).join("");
       loadGrid();
     })
-    .catch(err=>console.error("[manifest]",err));
+    .catch(err => console.error("[manifest]", err));
 }
 
 function loadGrid(){
-  const sel=document.getElementById("periodSelect");
+  const sel = document.getElementById("periodSelect");
   if (!sel.value) return;
 
   fetchJsonSafe(`${currentType}/${sel.value}`, "force-cache")
-    .then(json=>{
-      currentData=json;
+    .then(json => {
+      currentData = json;
       drawRaster(json);
-      const body=document.querySelector(".legend-body");
-      if (body) body.innerHTML=buildLegendHTML(`${currentType==="mensual"?"Mensual":"Bimestral"} – ${prettyFromName(sel.value)}`);
+
+      const body = document.querySelector(".legend-body");
+      if (body){
+        body.innerHTML = buildLegendHTML(
+          `${currentType === "mensual" ? "Mensual" : "Bimestral"} – ${prettyFromName(sel.value)}`
+        );
+      }
     })
-    .catch(err=>{ console.error("[grid]",err); alert("No pude cargar el JSON del pronóstico."); });
+    .catch(err => {
+      console.error("[grid]", err);
+      alert("No pude cargar el JSON del pronóstico. Revisa rutas/archivo.");
+    });
 }
 
 /* ================= EVENTS ================= */
-document.getElementById("typeToggle").onchange = e => { currentType = e.target.checked ? "bimestral" : "mensual"; loadManifest(); };
+document.getElementById("typeToggle").onchange = e =>{
+  currentType = e.target.checked ? "bimestral" : "mensual";
+  loadManifest();
+};
 document.getElementById("periodSelect").onchange = loadGrid;
 
 window.onload = ()=>{
@@ -508,3 +640,8 @@ window.onload = ()=>{
 </script>
 </body>
 </html>
+"""
+out = Path("/mnt/data/index_fixed.html")
+out.write_text(html, encoding="utf-8")
+str(out)
+
