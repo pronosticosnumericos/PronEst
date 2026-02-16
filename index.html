@@ -1,6 +1,4 @@
-from pathlib import Path
-
-html = r"""<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
@@ -640,8 +638,3 @@ window.onload = ()=>{
 </script>
 </body>
 </html>
-"""
-out = Path("/mnt/data/index_fixed.html")
-out.write_text(html, encoding="utf-8")
-str(out)
-
