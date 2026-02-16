@@ -180,8 +180,8 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 <script>
 /* ================= Ajustes finos (en CELDAS) ================= */
 const HALF_CELL = 0.5;        // lon/lat son centros
-const LAT_SHIFT_CELLS = 0.5;  // ej. -0.5 si está corrido al norte
-const LON_SHIFT_CELLS = 0.0;  // ej. -0.5 si está corrido al este
+const LAT_SHIFT_CELLS = -0.5;  // ej. -0.5 si está corrido al norte
+const LON_SHIFT_CELLS = 0.5;  // ej. -0.5 si está corrido al este
 
 /* iOS: workaround checkerboard */
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
