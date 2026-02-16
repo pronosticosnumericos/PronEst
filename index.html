@@ -8,169 +8,54 @@
 
 <style>
 html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
-:root{ --headerH: 80px; }
-#map { position:absolute; top: var(--headerH); bottom:0; left:0; right:0; z-index:1; }
+#map { position:absolute; top:80px; bottom:0; left:0; right:0; }
 
-/* ================= HEADER ================= */
 #site-header{
-  position: fixed; top: 0; left: 0; right: 0; height: var(--headerH);
+  position: fixed; top: 0; left: 0; right: 0; height: 80px;
   background: #ffffff; display: flex; justify-content: space-between; align-items: center;
   padding: 0 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); z-index: 3000;
 }
 .header-left{ display: flex; align-items: center; gap: 14px; }
 .header-left img{ height: 52px; }
-.header-text .brand{ font-size: 32px; font-weight: 800; color: #2c6cb0; line-height: 1.1; }
-.header-text .tagline{ font-size: 20px; font-weight: 800; color: #2c6cb0; }
-.btn-contacto{
-  border: 1px solid #2c6cb0; padding: 8px 14px; border-radius: 6px;
-  text-decoration: none; color: #2c6cb0; font-size: 13px; transition: all 0.2s ease;
-}
-.btn-contacto:hover{ background: #2c6cb0; color: white; }
+.header-text .brand{ font-size: 28px; font-weight: 800; color: #2c6cb0; }
+.header-text .tagline{ font-size: 16px; font-weight: 700; color: #2c6cb0; }
 
-/* ================= MENU PANEL ================= */
 #menu-panel{
-  position:absolute; top: calc(var(--headerH) + 30px); left:50%; transform:translateX(-50%);
-  background:rgba(255,255,255,0.96); padding:14px 18px; border-radius:14px;
-  box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:2000; min-width:360px;
+  position:absolute; top:110px; left:50%; transform:translateX(-50%);
+  background:white; padding:14px 18px; border-radius:14px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:2000;
 }
-.menu-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.menu-title{ font-size:15px; font-weight:800; color:#1f3b5c; margin:0; }
-.menu-subtitle{ display:block; font-size:12px; font-weight:500; color:#6b7c93; margin-top:2px; }
 
-#menuToggleBtn{
-  display:none;
-  border:1px solid #cbd5e1;
-  background:white;
-  border-radius:10px;
-  padding:6px 10px;
-  font-size:16px;
-  line-height:1;
-  cursor:pointer;
-}
-#menuBody{ margin-top:10px; }
-#menuBody.is-collapsed{ display:none; }
-
-.menu-controls{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
-.toggle-container{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#333; }
-.period-container{ display:flex; align-items:center; gap:6px; }
-.period-container label{ font-size:12px; font-weight:600; color:#444; }
-.period-container select{ font-size:12px; padding:6px 8px; border-radius:8px; border:1px solid #ccc; background:white; width: 100%; }
-
-/* Toggle switch */
-.switch{ position:relative; display:inline-block; width:44px; height:22px; }
-.switch input{ opacity:0; width:0; height:0; }
-.slider-toggle{
-  position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0;
-  background:#ccc; transition:.3s; border-radius:22px;
-}
-.slider-toggle:before{
-  position:absolute; content:""; height:18px; width:18px; left:2px; bottom:2px;
-  background:white; transition:.3s; border-radius:50%;
-}
-.switch input:checked + .slider-toggle{ background:#2c6cb0; }
-.switch input:checked + .slider-toggle:before{ transform:translateX(22px); }
-
-/* Hover box */
 #hoverBox{
-  position:fixed; z-index:2500; background:rgba(255,255,255,0.95);
+  position:fixed; z-index:3000; background:white;
   padding:6px 8px; border-radius:8px; box-shadow:0 0 6px rgba(0,0,0,0.3);
-  font-size:11px; pointer-events:none; display:none; max-width: 260px;
-}
-
-/* Legend */
-.legend{
-  background:white; padding:10px 10px; font-size:12px; border-radius:10px;
-  box-shadow:0 0 15px rgba(0,0,0,0.3);
-  min-width: 170px;
-}
-.legend-header{
-  display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;
-}
-.legend-title{ font-weight:800; color:#1f3b5c; font-size:12px; }
-.legend-toggle{
-  border:1px solid #cbd5e1; background:white; border-radius:8px;
-  padding:4px 8px; font-size:12px; cursor:pointer;
-}
-.legend-body.is-collapsed{ display:none; }
-.legend-row{ display:flex; align-items:center; }
-.legend-color-box{ width:16px; height:16px; margin-right:6px; border:1px solid #ccc; border-radius:3px; }
-
-/* Raster image tweaks */
-.forecast-raster{
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-}
-
-/* ================= RESPONSIVE (MÓVIL) ================= */
-@media (max-width: 600px){
-  :root{ --headerH: 64px; }
-  #site-header{ padding: 0 12px; }
-  .header-left img{ height: 42px; }
-  .header-text .brand{ font-size: 20px; }
-  .header-text .tagline{ font-size: 12px; font-weight: 700; }
-
-  #menu-panel{
-    top: calc(var(--headerH) + 10px);
-    left: 10px;
-    right: 10px;
-    transform: none;
-    min-width: unset;
-    border-radius: 14px;
-    padding: 10px 12px;
-  }
-
-  .menu-title{ font-size: 14px; }
-  .menu-subtitle{ font-size: 11px; }
-  #menuToggleBtn{ display:inline-flex; align-items:center; justify-content:center; }
-
-  .menu-controls{ flex-direction: column; align-items: stretch; gap:10px; }
-  .period-container{ justify-content: space-between; }
+  font-size:11px; pointer-events:none; display:none;
 }
 </style>
 </head>
 
 <body>
+
 <header id="site-header">
   <div class="header-left">
-    <img src="logo2.jpeg" alt="ClimaproAgro logo">
+    <img src="logo2.jpeg" alt="">
     <div class="header-text">
       <div class="brand">ClimaproAgro</div>
       <div class="tagline">Información Climática para la Agricultura</div>
     </div>
   </div>
-  <div class="header-right">
-    <a href="https://www.climaproagro.com/contacto" class="btn-contacto">Contacto</a>
-  </div>
 </header>
 
 <div id="menu-panel">
-  <div class="menu-header">
-    <div>
-      <div class="menu-title">Pronóstico NMME – Lluvia acumulada</div>
-      <span class="menu-subtitle">México</span>
-    </div>
-    <button id="menuToggleBtn" type="button" aria-label="Mostrar/Ocultar panel">☰</button>
-  </div>
-
-  <div id="menuBody">
-    <div class="menu-controls">
-      <div class="toggle-container">
-        <span>Mensual</span>
-        <label class="switch">
-          <input type="checkbox" id="typeToggle">
-          <span class="slider-toggle"></span>
-        </label>
-        <span>Bimestral</span>
-      </div>
-
-      <div class="period-container">
-        <label for="periodSelect">Periodo</label>
-        <select id="periodSelect"></select>
-      </div>
-    </div>
-  </div>
+  <label>Tipo:
+    <select id="typeSelect">
+      <option value="mensual">Mensual</option>
+      <option value="bimestral">Bimestral</option>
+    </select>
+  </label>
+  <label>Periodo:
+    <select id="periodSelect"></select>
+  </label>
 </div>
 
 <div id="map"></div>
@@ -178,457 +63,196 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* =========================================================
-   index.html OPERATIVO (tiempo real):
-   - Manifest siempre fresco (no-store + cache-busting)
-   - Raster alineado (bounds correctos) + ajuste por URL
-   - Hover robusto (clamp + nearest válido)
-   - iOS checkerboard fix
-========================================================= */
 
-/* ---------- Ajustes por URL (sin tocar código) ----------
-   Ejemplos:
-   ?latShift=-0.5&lonShift=0.0
-   ?half=0.5&latShift=-0.25&lonShift=0.25
---------------------------------------------------------- */
-const params = new URLSearchParams(location.search);
-const HALF_CELL      = parseFloat(params.get("half") ?? "0.5");      // normalmente 0.5 si lon/lat son centros
-const LAT_SHIFT_CELLS= parseFloat(params.get("latShift") ?? "0.0");  // mover en celdas (ej -0.5)
-const LON_SHIFT_CELLS= parseFloat(params.get("lonShift") ?? "0.0");
-const HOVER_RADIUS   = parseInt(params.get("hoverR") ?? "2", 10);    // radio vecinos válidos
-const DEBUG          = (params.get("debug") === "1");
+// ================= CONFIG =================
+const HALF_CELL = 0.5;     // 0.5 si lat/lon son centros
+const LAT_SHIFT = 0.0;     // ajuste fino en CELDAS
+const LON_SHIFT = 0.0;
 
-/* iOS workaround: “checkerboard” */
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-if (IS_IOS && L && L.Browser){ L.Browser.any3d = false; }
+let map, rasterOverlay=null, rasterBlob=null;
+let currentData=null;
+let currentType="mensual";
 
-/* ================= CONFIG ================= */
-let currentData = null;
-let currentType = "mensual";
-let steps = [];
-let map, rasterOverlay, legend;
-let rasterBlobUrl = null;
+// ================= MAP =================
+map = L.map("map").setView([23,-102],5);
 
-const VAR_LABEL = "Lluvia acumulada";
-const VAR_UNITS = "mm";
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
+{ attribution:"© OpenStreetMap, © CARTO" }).addTo(map);
 
-const URL_MX_STATES  = "https://raw.githubusercontent.com/strotgen/mexico-leaflet/master/states.geojson";
-const URL_MX_COUNTRY = "https://raw.githubusercontent.com/johan/world.geo.json/master/countries/MEX.geo.json";
-const DRAW_COUNTRY_BORDER = false;
-const STATE_LINE_WEIGHT   = 1.0;
-const COUNTRY_LINE_WEIGHT = 1.5;
+// ================= UTIL =================
+function normalizeLon(lon){ return (lon>180)?lon-360:lon; }
 
-/* ================= UTILS ================= */
-function monthNameEs(m){ return ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1]; }
-function prettyFromName(f){
-  let m = f.match(/_(\d{6})_(\d{6})/);
-  if (m) return `${monthNameEs(+m[1].slice(4))}–${monthNameEs(+m[2].slice(4))} ${m[1].slice(0,4)}`;
-  m = f.match(/_(\d{6})/);
-  if (m) return `${monthNameEs(+m[1].slice(4))} ${m[1].slice(0,4)}`;
-  return f;
-}
-function normalizeLon(lon){ return (lon > 180) ? lon - 360 : lon; }
-function clamp(v, lo, hi){ return Math.min(hi, Math.max(lo, v)); }
-
-async function fetchJsonSafe(url, cacheMode="force-cache"){
-  const res = await fetch(url, { cache: cacheMode });
-  const txt = await res.text();
-  if (!res.ok) throw new Error(`HTTP ${res.status} al descargar: ${url}`);
-  const t = txt.trim();
-  if (!(t.startsWith("{") || t.startsWith("["))) throw new Error(`No parece JSON: ${url}\nInicio: ${t.slice(0,120)}`);
-  return JSON.parse(t);
-}
-
-/* ================= MAP ================= */
-function initMap(){
-  map = L.map("map", {
-    zoomControl: true,
-    minZoom: 4,
-    maxZoom: 10,
-    zoomAnimation: !IS_IOS,
-    fadeAnimation: !IS_IOS,
-    markerZoomAnimation: !IS_IOS
-  }).setView([23,-102],5);
-
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
-    { attribution: "© OpenStreetMap, © CARTO" }).addTo(map);
-
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.6 }).addTo(map);
-
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.9 }).addTo(map);
-
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.15 }).addTo(map);
-
-  legend = L.control({ position: "bottomright" });
-  legend.onAdd = function(){
-    const div = L.DomUtil.create("div", "legend");
-    div.innerHTML = `
-      <div class="legend-header">
-        <div class="legend-title">Leyenda</div>
-        <button class="legend-toggle" type="button">Ocultar</button>
-      </div>
-      <div class="legend-body">Cargando…</div>
-    `;
-    L.DomEvent.disableClickPropagation(div);
-    L.DomEvent.disableScrollPropagation(div);
-    return div;
-  };
-  legend.addTo(map);
-
-  // Hover (mouse + touch/pointer)
-  const hoverHandler = (ev) => {
-    if (!currentData || !currentData._render) return;
-
-    const latlng = ev.latlng;
-    const v = valueAtPixelNearestValid(latlng, HOVER_RADIUS);
-
-    const box = document.getElementById("hoverBox");
-    const valueStr = (v === null) ? "Sin dato" : `${v.toFixed(1)} ${VAR_UNITS}`;
-
-    box.innerHTML = `
-      <b>${VAR_LABEL}</b><br>
-      Valor: <b>${valueStr}</b><br>
-      Lat: ${latlng.lat.toFixed(2)}°<br>
-      Lon: ${latlng.lng.toFixed(2)}°<br>
-      Tipo: ${currentType === "mensual" ? "Mensual" : "Bimestral"}
-      ${DEBUG ? `<br><span style="color:#666">half=${HALF_CELL}, latShift=${LAT_SHIFT_CELLS}, lonShift=${LON_SHIFT_CELLS}</span>` : ""}
-    `;
-
-    // posiciona cerca del cursor/touch
-    const oe = ev.originalEvent;
-    const px = (oe && (oe.pageX || (oe.touches && oe.touches[0]?.pageX))) ?? 0;
-    const py = (oe && (oe.pageY || (oe.touches && oe.touches[0]?.pageY))) ?? 0;
-    box.style.left = (px + 15) + "px";
-    box.style.top  = (py + 15) + "px";
-    box.style.display = "block";
-  };
-
-  map.on("mousemove", hoverHandler);
-  map.on("pointermove", hoverHandler);
-
-  map.on("mouseout", () => { document.getElementById("hoverBox").style.display = "none"; });
-  map.on("dragstart", () => { document.getElementById("hoverBox").style.display = "none"; });
-}
-
-/* ================= México boundaries ================= */
-let mxStatesLayer = null;
-let mxCountryLayer = null;
-
-async function loadMexicoBoundaries(){
-  try {
-    const [countryGeojson, statesGeojson] = await Promise.all([
-      fetchJsonSafe(URL_MX_COUNTRY, "force-cache"),
-      fetchJsonSafe(URL_MX_STATES, "force-cache")
-    ]);
-
-    if (mxStatesLayer) map.removeLayer(mxStatesLayer);
-    if (mxCountryLayer) map.removeLayer(mxCountryLayer);
-
-    mxStatesLayer = L.geoJSON(statesGeojson, {
-      interactive: false,
-      style: { color: "#2b2b2b", weight: STATE_LINE_WEIGHT, opacity: 0.55, fillOpacity: 0 }
-    }).addTo(map);
-
-    if (DRAW_COUNTRY_BORDER){
-      mxCountryLayer = L.geoJSON(countryGeojson, {
-        interactive: false,
-        style: { color: "#111111", weight: COUNTRY_LINE_WEIGHT, opacity: 0.9, fillOpacity: 0 }
-      }).addTo(map);
-    }
-
-    const boundsMx = (mxCountryLayer ? mxCountryLayer.getBounds() : mxStatesLayer.getBounds());
-    map.fitBounds(boundsMx.pad(0.03));
-    map.setMaxBounds(boundsMx.pad(0.08));
-  } catch (err){
-    console.error("[Mexico boundaries]", err);
-    alert("No pude cargar límites de México/estados. Revisa tu conexión o las URLs de GeoJSON.");
-  }
-}
-
-/* ================= Panel/Leyenda colapsables ================= */
-function setupCollapsibles(){
-  const menuPanel = document.getElementById("menu-panel");
-  const menuBody  = document.getElementById("menuBody");
-  const menuBtn   = document.getElementById("menuToggleBtn");
-
-  if (menuPanel){
-    L.DomEvent.disableClickPropagation(menuPanel);
-    L.DomEvent.disableScrollPropagation(menuPanel);
-  }
-
-  const isMobile = window.matchMedia && window.matchMedia("(max-width: 600px)").matches;
-
-  if (isMobile){
-    menuBody.classList.add("is-collapsed");
-    menuBtn.textContent = "☰";
-  }
-
-  menuBtn.addEventListener("click", () => {
-    const collapsed = menuBody.classList.toggle("is-collapsed");
-    menuBtn.textContent = collapsed ? "☰" : "✕";
-  });
-
-  const legendEl = document.querySelector(".legend");
-  if (!legendEl) return;
-
-  const legendBtn  = legendEl.querySelector(".legend-toggle");
-  const legendBody = legendEl.querySelector(".legend-body");
-
-  if (isMobile && legendBody){
-    legendBody.classList.add("is-collapsed");
-    if (legendBtn) legendBtn.textContent = "Mostrar";
-  }
-
-  if (legendBtn && legendBody){
-    legendBtn.addEventListener("click", () => {
-      const collapsed = legendBody.classList.toggle("is-collapsed");
-      legendBtn.textContent = collapsed ? "Mostrar" : "Ocultar";
-    });
-  }
-}
-
-/* ================= COLORS ================= */
-const PRATE_LEVELS = [1,30,60,90,120,180,240,360,500,600,700,800,1000];
-const PRATE_COLORS = [
-  "#ffffff", "#ffffff", "#fee391", "#fec44f", "#addd8e", "#78c679",
-  "#41ab5d", "#238443", "#1f78b4", "#225ea8", "#253494", "#54278f", "#7a0177"
-];
-function hexToRGBA(hex, alpha=255){
-  const c = hex.replace("#","");
-  return [parseInt(c.substring(0,2),16), parseInt(c.substring(2,4),16), parseInt(c.substring(4,6),16), alpha];
-}
-function getColorPrate(v){
-  if (!isFinite(v) || v < 1) return [255,255,255,0];
-  for (let i=0; i<PRATE_LEVELS.length-1; i++){
-    if (v >= PRATE_LEVELS[i] && v < PRATE_LEVELS[i+1]) return hexToRGBA(PRATE_COLORS[i+1], 200);
-  }
-  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length-1], 200);
-}
-function buildLegendHTML(periodLabel){
-  let html = `<b>${VAR_LABEL} (${VAR_UNITS})</b><br>`;
-  html += `<span style="font-size:11px">${periodLabel}</span><br><br>`;
-  for (let i=0; i<PRATE_LEVELS.length-1; i++){
-    html += `
-      <div class="legend-row">
-        <div class="legend-color-box" style="background:${PRATE_COLORS[i+1]}"></div>
-        <span>${PRATE_LEVELS[i]} – ${PRATE_LEVELS[i+1]}</span>
-      </div>`;
-  }
-  html += `
-    <div class="legend-row">
-      <div class="legend-color-box" style="background:${PRATE_COLORS[PRATE_COLORS.length-1]}"></div>
-      <span>&gt; ${PRATE_LEVELS[PRATE_LEVELS.length-1]}</span>
-    </div>`;
-  return html;
-}
-
-/* ================= RASTER: bounds + render ================= */
 function computeStep(arr){
-  if (!arr || arr.length < 2) return 0;
-  const diffs = [];
-  for (let i=1;i<arr.length;i++){
-    const d = arr[i]-arr[i-1];
-    if (isFinite(d) && d !== 0) diffs.push(Math.abs(d));
+  let d=[];
+  for(let i=1;i<arr.length;i++){
+    let diff=arr[i]-arr[i-1];
+    if(isFinite(diff)&&diff!==0) d.push(Math.abs(diff));
   }
-  diffs.sort((a,b)=>a-b);
-  return diffs.length ? diffs[Math.floor(diffs.length/2)] : Math.abs(arr[1]-arr[0]);
+  d.sort((a,b)=>a-b);
+  return d[Math.floor(d.length/2)];
 }
 
+function hexToRGBA(hex,a=200){
+  hex=hex.replace("#","");
+  return [
+    parseInt(hex.substring(0,2),16),
+    parseInt(hex.substring(2,4),16),
+    parseInt(hex.substring(4,6),16),
+    a
+  ];
+}
+
+const LEVELS=[1,30,60,90,120,180,240,360,500,600,700,800,1000];
+const COLORS=[
+"#ffffff","#fee391","#fec44f","#addd8e","#78c679",
+"#41ab5d","#238443","#1f78b4","#225ea8","#253494",
+"#54278f","#7a0177"
+];
+
+function getColor(v){
+  if(!isFinite(v)||v<1) return [0,0,0,0];
+  for(let i=0;i<LEVELS.length-1;i++){
+    if(v>=LEVELS[i]&&v<LEVELS[i+1])
+      return hexToRGBA(COLORS[i]);
+  }
+  return hexToRGBA(COLORS[COLORS.length-1]);
+}
+
+// ================= RASTER COMPLETO =================
 function drawRaster(data){
-  if (!data || !data.grid || !data.grid.lat || !data.grid.lon || !data.grid.data){
-    throw new Error("JSON no tiene estructura esperada: data.grid.{lat,lon,data}");
-  }
 
-  let lat = data.grid.lat.slice();
-  let lon = data.grid.lon.map(normalizeLon);
-  let z   = data.grid.data; // [ny][nx]
+  let lat=data.grid.lat.slice();
+  let lon=data.grid.lon.map(normalizeLon);
+  let z=data.grid.data;
 
-  const ny = lat.length;
-  const nx = lon.length;
+  const ny=lat.length;
+  const nx=lon.length;
 
-  // asegurar lon creciente
-  let lonIncreasing = true;
-  for (let j=1;j<nx;j++){ if (!(lon[j] > lon[j-1])) { lonIncreasing=false; break; } }
-  if (!lonIncreasing){
-    const idx = lon.map((v,i)=>[v,i]).sort((a,b)=>a[0]-b[0]).map(p=>p[1]);
-    lon = idx.map(i => lon[i]);
-    z   = z.map(row => idx.map(j => row[j]));
-  }
+  const dLat=computeStep(lat);
+  const dLon=computeStep(lon);
 
-  const dLat = computeStep(lat);
-  const dLon = computeStep(lon);
+  const latInc=(lat[1]>lat[0]);
 
-  const latInc = (ny>1) ? (lat[1] > lat[0]) : true;
-  const lon0 = lon[0], lonN = lon[nx-1];
+  const south0=latInc?lat[0]:lat[ny-1];
+  const north0=latInc?lat[ny-1]:lat[0];
 
-  const south0 = latInc ? lat[0]    : lat[ny-1];
-  const north0 = latInc ? lat[ny-1] : lat[0];
+  const west=lon[0]-dLon*HALF_CELL+LON_SHIFT*dLon;
+  const east=lon[nx-1]+dLon*HALF_CELL+LON_SHIFT*dLon;
+  const south=south0-dLat*HALF_CELL+LAT_SHIFT*dLat;
+  const north=north0+dLat*HALF_CELL+LAT_SHIFT*dLat;
 
-  // bounds (centros -> bordes) + ajuste fino por CELDAS
-  const west  = lon0 - dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
-  const east  = lonN + dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
-  const south = south0 - dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
-  const north = north0 + dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
+  const bounds=[[south,west],[north,east]];
 
-  const bounds = [[south, west],[north, east]];
+  const canvas=document.createElement("canvas");
+  canvas.width=nx;
+  canvas.height=ny;
 
-  // canvas render
-  const canvas = document.createElement("canvas");
-  canvas.width = nx; canvas.height = ny;
-  const ctx = canvas.getContext("2d", { willReadFrequently: false });
-  const img = ctx.createImageData(nx, ny);
+  const ctx=canvas.getContext("2d");
+  const img=ctx.createImageData(nx,ny);
 
-  for (let i=0;i<ny;i++){
-    for (let j=0;j<nx;j++){
-      const v = z[i][j];
-      if (v == null || !isFinite(v)) continue;
-
-      const rgba = getColorPrate(v);
-      const yPix = latInc ? (ny - 1 - i) : i; // north on top
-      const k = (yPix * nx + j) * 4;
-
-      img.data[k]   = rgba[0];
-      img.data[k+1] = rgba[1];
-      img.data[k+2] = rgba[2];
-      img.data[k+3] = rgba[3];
+  for(let i=0;i<ny;i++){
+    for(let j=0;j<nx;j++){
+      let v=z[i][j];
+      if(v==null||!isFinite(v)) continue;
+      let rgba=getColor(v);
+      let yPix=latInc?(ny-1-i):i;
+      let k=(yPix*nx+j)*4;
+      img.data[k]=rgba[0];
+      img.data[k+1]=rgba[1];
+      img.data[k+2]=rgba[2];
+      img.data[k+3]=rgba[3];
     }
   }
-  ctx.putImageData(img, 0, 0);
 
-  canvas.toBlob(blob => {
-    if (!blob) return;
+  ctx.putImageData(img,0,0);
 
-    if (rasterOverlay) map.removeLayer(rasterOverlay);
-    if (rasterBlobUrl){ URL.revokeObjectURL(rasterBlobUrl); rasterBlobUrl = null; }
+  canvas.toBlob(blob=>{
+    if(rasterOverlay) map.removeLayer(rasterOverlay);
+    if(rasterBlob) URL.revokeObjectURL(rasterBlob);
 
-    rasterBlobUrl = URL.createObjectURL(blob);
-    rasterOverlay = L.imageOverlay(rasterBlobUrl, bounds, {
-      opacity: 0.85,
-      interactive: false,
-      className: "forecast-raster"
-    }).addTo(map);
+    rasterBlob=URL.createObjectURL(blob);
+    rasterOverlay=L.imageOverlay(rasterBlob,bounds,{opacity:0.85}).addTo(map);
 
-    // iOS repaint
-    if (IS_IOS){
-      const el = rasterOverlay.getElement();
-      if (el){
-        el.style.webkitBackfaceVisibility = "hidden";
-        el.style.backfaceVisibility = "hidden";
-        requestAnimationFrame(()=>{ el.style.opacity = "0.84"; requestAnimationFrame(()=>{ el.style.opacity="0.85"; }); });
-      }
-    }
-
-    // guardar render exacto para hover
-    currentData._render = {
-      z, nx, ny, latIncreasing: latInc,
-      bounds: rasterOverlay.getBounds()
+    currentData._render={
+      z:z,
+      nx:nx,
+      ny:ny,
+      latInc:latInc,
+      bounds:L.latLngBounds(
+        L.latLng(south,west),
+        L.latLng(north,east)
+      )
     };
-
-    if (DEBUG){
-      console.log("[DEBUG] dLat/dLon:", dLat, dLon, "bounds:", bounds, "nx/ny:", nx, ny);
-    }
-  }, "image/png");
+  });
 }
 
-/* ================= HOVER: nearest válido ================= */
-function valueAtPixelNearestValid(latlng, r=2){
-  const R = currentData ? currentData._render : null;
-  if (!R) return null;
+// ================= HOVER REAL =================
+function getValue(latlng){
+  const R=currentData._render;
+  const b=R.bounds;
 
-  const b = R.bounds;
+  const pNW=map.latLngToLayerPoint(b.getNorthWest());
+  const pSE=map.latLngToLayerPoint(b.getSouthEast());
+  const p=map.latLngToLayerPoint(latlng);
 
-  const x = (latlng.lng - b.getWest()) / (b.getEast() - b.getWest());
-  const y = (b.getNorth() - latlng.lat) / (b.getNorth() - b.getSouth());
-  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+  const x=(p.x-pNW.x)/(pSE.x-pNW.x);
+  const y=(p.y-pNW.y)/(pSE.y-pNW.y);
 
-  const xPix = x * (R.nx - 1);
-  const yPix = y * (R.ny - 1);
+  if(x<0||x>1||y<0||y>1) return null;
 
-  const iFloat = R.latIncreasing ? ((R.ny - 1) - yPix) : yPix;
-  const jFloat = xPix;
+  const xPix=x*(R.nx-1);
+  const yPix=y*(R.ny-1);
 
-  const i0 = clamp(Math.round(iFloat), 0, R.ny - 1);
-  const j0 = clamp(Math.round(jFloat), 0, R.nx - 1);
+  const iFloat=R.latInc?((R.ny-1)-yPix):yPix;
+  const jFloat=xPix;
 
-  let v = R.z[i0][j0];
-  if (v != null && isFinite(v)) return v;
+  const i=Math.round(iFloat);
+  const j=Math.round(jFloat);
 
-  // buscar vecino válido cercano (quita “huecos” por máscara)
-  for (let di=-r; di<=r; di++){
-    for (let dj=-r; dj<=r; dj++){
-      const i = i0 + di, j = j0 + dj;
-      if (i<0 || j<0 || i>=R.ny || j>=R.nx) continue;
-      v = R.z[i][j];
-      if (v != null && isFinite(v)) return v;
-    }
-  }
-  return null;
+  return R.z[i]?.[j]??null;
 }
 
-/* ================= DATA ================= */
+map.on("mousemove",e=>{
+  if(!currentData||!currentData._render) return;
+  const v=getValue(e.latlng);
+  const box=document.getElementById("hoverBox");
+
+  box.innerHTML="<b>Lluvia acumulada</b><br>Valor: "+
+  (v==null?"Sin dato":v.toFixed(1)+" mm")+
+  "<br>Lat:"+e.latlng.lat.toFixed(2)+
+  "<br>Lon:"+e.latlng.lng.toFixed(2);
+
+  box.style.left=(e.originalEvent.pageX+15)+"px";
+  box.style.top=(e.originalEvent.pageY+15)+"px";
+  box.style.display="block";
+});
+
+map.on("mouseout",()=>{ document.getElementById("hoverBox").style.display="none"; });
+
+// ================= DATA =================
 async function loadManifest(){
-  // cache-busting para asegurar “tiempo real”
-  const bust = Date.now();
-  const url = `${currentType}/auto_manifest.json?cb=${bust}`;
-
-  try{
-    const m = await fetchJsonSafe(url, "no-store");
-    steps = m.files || m; // soporta {files:[...]} o [...]
-    if (!Array.isArray(steps) || steps.length === 0) throw new Error("Manifest vacío o inválido.");
-
-    const sel = document.getElementById("periodSelect");
-    sel.innerHTML = steps.map(f => `<option value="${f}">${prettyFromName(f)}</option>`).join("");
-
-    // carga el primero por defecto
-    loadGrid();
-  }catch(err){
-    console.error("[manifest]", err);
-    alert("No pude cargar el manifest. Revisa que exista: " + url);
-  }
+  const m=await fetch(currentType+"/auto_manifest.json?cb="+Date.now(),{cache:"no-store"}).then(r=>r.json());
+  const sel=document.getElementById("periodSelect");
+  sel.innerHTML=m.files.map(f=>`<option value="${f}">${f}</option>`).join("");
+  loadGrid();
 }
 
 async function loadGrid(){
-  const sel = document.getElementById("periodSelect");
-  if (!sel || !sel.value) return;
-
-  // el grid puede cachearse, pero si quieres ultra-real-time, usa cb también:
-  const url = `${currentType}/${sel.value}?cb=${Date.now()}`;
-
-  try{
-    const json = await fetchJsonSafe(url, "no-store"); // no-store evita que se quede viejo
-    currentData = json;
-
-    drawRaster(json);
-
-    const body = document.querySelector(".legend-body");
-    if (body){
-      body.innerHTML = buildLegendHTML(
-        `${currentType === "mensual" ? "Mensual" : "Bimestral"} – ${prettyFromName(sel.value)}`
-      );
-    }
-  }catch(err){
-    console.error("[grid]", err);
-    alert("No pude cargar el JSON del pronóstico:\n" + url);
-  }
+  const file=document.getElementById("periodSelect").value;
+  if(!file) return;
+  currentData=await fetch(currentType+"/"+file+"?cb="+Date.now(),{cache:"no-store"}).then(r=>r.json());
+  drawRaster(currentData);
 }
 
-/* ================= EVENTS ================= */
-document.getElementById("typeToggle").addEventListener("change", e => {
-  currentType = e.target.checked ? "bimestral" : "mensual";
+document.getElementById("typeSelect").onchange=e=>{
+  currentType=e.target.value;
   loadManifest();
-});
+};
 
-document.getElementById("periodSelect").addEventListener("change", loadGrid);
+document.getElementById("periodSelect").onchange=loadGrid;
 
-window.addEventListener("load", () => {
-  initMap();
-  loadMexicoBoundaries();
-  setupCollapsibles();
-  loadManifest();
-});
+loadManifest();
+
 </script>
 </body>
 </html>
