@@ -1,258 +1,49 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8" />
-<title>Pronóstico NMME – Lluvia acumulada (México)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+function valueAtPixelNearestValid(latlng, r=2){
+  const R = currentData ? currentData._render : null;
+  if (!R || !map) return null;
 
-<style>
-html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
-#map { position:absolute; top:80px; bottom:0; left:0; right:0; }
+  // Bounds del overlay (lat/lon) pero el cálculo de (x,y) lo hacemos en PROYECCIÓN
+  const b  = R.bounds;
+  const nw = b.getNorthWest();
+  const se = b.getSouthEast();
 
-#site-header{
-  position: fixed; top: 0; left: 0; right: 0; height: 80px;
-  background: #ffffff; display: flex; justify-content: space-between; align-items: center;
-  padding: 0 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); z-index: 3000;
-}
-.header-left{ display: flex; align-items: center; gap: 14px; }
-.header-left img{ height: 52px; }
-.header-text .brand{ font-size: 28px; font-weight: 800; color: #2c6cb0; }
-.header-text .tagline{ font-size: 16px; font-weight: 700; color: #2c6cb0; }
+  // Coordenadas en pixeles de capa (WebMercator) -> coincide con lo que se ve
+  const pNW = map.latLngToLayerPoint(nw);
+  const pSE = map.latLngToLayerPoint(se);
+  const p   = map.latLngToLayerPoint(latlng);
 
-#menu-panel{
-  position:absolute; top:110px; left:50%; transform:translateX(-50%);
-  background:white; padding:14px 18px; border-radius:14px;
-  box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:2000;
-}
+  const dx = (pSE.x - pNW.x);
+  const dy = (pSE.y - pNW.y);
+  if (dx === 0 || dy === 0) return null;
 
-#hoverBox{
-  position:fixed; z-index:3000; background:white;
-  padding:6px 8px; border-radius:8px; box-shadow:0 0 6px rgba(0,0,0,0.3);
-  font-size:11px; pointer-events:none; display:none;
-}
-</style>
-</head>
+  const x = (p.x - pNW.x) / dx;   // 0..1 izquierda->derecha
+  const y = (p.y - pNW.y) / dy;   // 0..1 arriba->abajo
 
-<body>
+  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
 
-<header id="site-header">
-  <div class="header-left">
-    <img src="logo2.jpeg" alt="">
-    <div class="header-text">
-      <div class="brand">ClimaproAgro</div>
-      <div class="tagline">Información Climática para la Agricultura</div>
-    </div>
-  </div>
-</header>
+  // Pixel en la imagen (top-left)
+  const xPix = x * (R.nx - 1);
+  const yPix = y * (R.ny - 1);
 
-<div id="menu-panel">
-  <label>Tipo:
-    <select id="typeSelect">
-      <option value="mensual">Mensual</option>
-      <option value="bimestral">Bimestral</option>
-    </select>
-  </label>
-  <label>Periodo:
-    <select id="periodSelect"></select>
-  </label>
-</div>
+  // Convertir a índice del grid original (i,j)
+  const iFloat = R.latIncreasing ? ((R.ny - 1) - yPix) : yPix;
+  const jFloat = xPix;
 
-<div id="map"></div>
-<div id="hoverBox"></div>
+  const i0 = Math.min(R.ny - 1, Math.max(0, Math.round(iFloat)));
+  const j0 = Math.min(R.nx - 1, Math.max(0, Math.round(jFloat)));
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
+  // primero intenta exacto
+  let v = R.z[i0][j0];
+  if (v != null && isFinite(v)) return v;
 
-// ================= CONFIG =================
-const HALF_CELL = 0.5;     // 0.5 si lat/lon son centros
-const LAT_SHIFT = 0.0;     // ajuste fino en CELDAS
-const LON_SHIFT = 0.0;
-
-let map, rasterOverlay=null, rasterBlob=null;
-let currentData=null;
-let currentType="mensual";
-
-// ================= MAP =================
-map = L.map("map").setView([23,-102],5);
-
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
-{ attribution:"© OpenStreetMap, © CARTO" }).addTo(map);
-
-// ================= UTIL =================
-function normalizeLon(lon){ return (lon>180)?lon-360:lon; }
-
-function computeStep(arr){
-  let d=[];
-  for(let i=1;i<arr.length;i++){
-    let diff=arr[i]-arr[i-1];
-    if(isFinite(diff)&&diff!==0) d.push(Math.abs(diff));
-  }
-  d.sort((a,b)=>a-b);
-  return d[Math.floor(d.length/2)];
-}
-
-function hexToRGBA(hex,a=200){
-  hex=hex.replace("#","");
-  return [
-    parseInt(hex.substring(0,2),16),
-    parseInt(hex.substring(2,4),16),
-    parseInt(hex.substring(4,6),16),
-    a
-  ];
-}
-
-const LEVELS=[1,30,60,90,120,180,240,360,500,600,700,800,1000];
-const COLORS=[
-"#ffffff","#fee391","#fec44f","#addd8e","#78c679",
-"#41ab5d","#238443","#1f78b4","#225ea8","#253494",
-"#54278f","#7a0177"
-];
-
-function getColor(v){
-  if(!isFinite(v)||v<1) return [0,0,0,0];
-  for(let i=0;i<LEVELS.length-1;i++){
-    if(v>=LEVELS[i]&&v<LEVELS[i+1])
-      return hexToRGBA(COLORS[i]);
-  }
-  return hexToRGBA(COLORS[COLORS.length-1]);
-}
-
-// ================= RASTER COMPLETO =================
-function drawRaster(data){
-
-  let lat=data.grid.lat.slice();
-  let lon=data.grid.lon.map(normalizeLon);
-  let z=data.grid.data;
-
-  const ny=lat.length;
-  const nx=lon.length;
-
-  const dLat=computeStep(lat);
-  const dLon=computeStep(lon);
-
-  const latInc=(lat[1]>lat[0]);
-
-  const south0=latInc?lat[0]:lat[ny-1];
-  const north0=latInc?lat[ny-1]:lat[0];
-
-  const west=lon[0]-dLon*HALF_CELL+LON_SHIFT*dLon;
-  const east=lon[nx-1]+dLon*HALF_CELL+LON_SHIFT*dLon;
-  const south=south0-dLat*HALF_CELL+LAT_SHIFT*dLat;
-  const north=north0+dLat*HALF_CELL+LAT_SHIFT*dLat;
-
-  const bounds=[[south,west],[north,east]];
-
-  const canvas=document.createElement("canvas");
-  canvas.width=nx;
-  canvas.height=ny;
-
-  const ctx=canvas.getContext("2d");
-  const img=ctx.createImageData(nx,ny);
-
-  for(let i=0;i<ny;i++){
-    for(let j=0;j<nx;j++){
-      let v=z[i][j];
-      if(v==null||!isFinite(v)) continue;
-      let rgba=getColor(v);
-      let yPix=latInc?(ny-1-i):i;
-      let k=(yPix*nx+j)*4;
-      img.data[k]=rgba[0];
-      img.data[k+1]=rgba[1];
-      img.data[k+2]=rgba[2];
-      img.data[k+3]=rgba[3];
+  // busca vecino válido cercano (quita “huecos” por máscara)
+  for (let di = -r; di <= r; di++){
+    for (let dj = -r; dj <= r; dj++){
+      const i = i0 + di, j = j0 + dj;
+      if (i<0 || j<0 || i>=R.ny || j>=R.nx) continue;
+      v = R.z[i][j];
+      if (v != null && isFinite(v)) return v;
     }
   }
-
-  ctx.putImageData(img,0,0);
-
-  canvas.toBlob(blob=>{
-    if(rasterOverlay) map.removeLayer(rasterOverlay);
-    if(rasterBlob) URL.revokeObjectURL(rasterBlob);
-
-    rasterBlob=URL.createObjectURL(blob);
-    rasterOverlay=L.imageOverlay(rasterBlob,bounds,{opacity:0.85}).addTo(map);
-
-    currentData._render={
-      z:z,
-      nx:nx,
-      ny:ny,
-      latInc:latInc,
-      bounds:L.latLngBounds(
-        L.latLng(south,west),
-        L.latLng(north,east)
-      )
-    };
-  });
+  return null;
 }
-
-// ================= HOVER REAL =================
-function getValue(latlng){
-  const R=currentData._render;
-  const b=R.bounds;
-
-  const pNW=map.latLngToLayerPoint(b.getNorthWest());
-  const pSE=map.latLngToLayerPoint(b.getSouthEast());
-  const p=map.latLngToLayerPoint(latlng);
-
-  const x=(p.x-pNW.x)/(pSE.x-pNW.x);
-  const y=(p.y-pNW.y)/(pSE.y-pNW.y);
-
-  if(x<0||x>1||y<0||y>1) return null;
-
-  const xPix=x*(R.nx-1);
-  const yPix=y*(R.ny-1);
-
-  const iFloat=R.latInc?((R.ny-1)-yPix):yPix;
-  const jFloat=xPix;
-
-  const i=Math.round(iFloat);
-  const j=Math.round(jFloat);
-
-  return R.z[i]?.[j]??null;
-}
-
-map.on("mousemove",e=>{
-  if(!currentData||!currentData._render) return;
-  const v=getValue(e.latlng);
-  const box=document.getElementById("hoverBox");
-
-  box.innerHTML="<b>Lluvia acumulada</b><br>Valor: "+
-  (v==null?"Sin dato":v.toFixed(1)+" mm")+
-  "<br>Lat:"+e.latlng.lat.toFixed(2)+
-  "<br>Lon:"+e.latlng.lng.toFixed(2);
-
-  box.style.left=(e.originalEvent.pageX+15)+"px";
-  box.style.top=(e.originalEvent.pageY+15)+"px";
-  box.style.display="block";
-});
-
-map.on("mouseout",()=>{ document.getElementById("hoverBox").style.display="none"; });
-
-// ================= DATA =================
-async function loadManifest(){
-  const m=await fetch(currentType+"/auto_manifest.json?cb="+Date.now(),{cache:"no-store"}).then(r=>r.json());
-  const sel=document.getElementById("periodSelect");
-  sel.innerHTML=m.files.map(f=>`<option value="${f}">${f}</option>`).join("");
-  loadGrid();
-}
-
-async function loadGrid(){
-  const file=document.getElementById("periodSelect").value;
-  if(!file) return;
-  currentData=await fetch(currentType+"/"+file+"?cb="+Date.now(),{cache:"no-store"}).then(r=>r.json());
-  drawRaster(currentData);
-}
-
-document.getElementById("typeSelect").onchange=e=>{
-  currentType=e.target.value;
-  loadManifest();
-};
-
-document.getElementById("periodSelect").onchange=loadGrid;
-
-loadManifest();
-
-</script>
-</body>
-</html>
