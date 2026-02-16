@@ -8,11 +8,12 @@
 
 <style>
 html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
-#map { position:absolute; top:80px; bottom:0; left:0; right:0; z-index:1; }
+:root{ --headerH: 80px; }
+#map { position:absolute; top: var(--headerH); bottom:0; left:0; right:0; z-index:1; }
 
 /* ================= HEADER ================= */
 #site-header{
-  position: fixed; top: 0; left: 0; right: 0; height: 80px;
+  position: fixed; top: 0; left: 0; right: 0; height: var(--headerH);
   background: #ffffff; display: flex; justify-content: space-between; align-items: center;
   padding: 0 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); z-index: 3000;
 }
@@ -28,7 +29,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 
 /* ================= MENU PANEL ================= */
 #menu-panel{
-  position:absolute; top:110px; left:50%; transform:translateX(-50%);
+  position:absolute; top: calc(var(--headerH) + 30px); left:50%; transform:translateX(-50%);
   background:rgba(255,255,255,0.96); padding:14px 18px; border-radius:14px;
   box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:2000; min-width:360px;
 }
@@ -53,7 +54,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 .toggle-container{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#333; }
 .period-container{ display:flex; align-items:center; gap:6px; }
 .period-container label{ font-size:12px; font-weight:600; color:#444; }
-.period-container select{ font-size:12px; padding:6px 8px; border-radius:8px; border:1px solid #ccc; background:white; }
+.period-container select{ font-size:12px; padding:6px 8px; border-radius:8px; border:1px solid #ccc; background:white; width: 100%; }
 
 /* Toggle switch */
 .switch{ position:relative; display:inline-block; width:44px; height:22px; }
@@ -71,9 +72,9 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 
 /* Hover box */
 #hoverBox{
-  position:fixed; z-index:2000; background:rgba(255,255,255,0.95);
+  position:fixed; z-index:2500; background:rgba(255,255,255,0.95);
   padding:6px 8px; border-radius:8px; box-shadow:0 0 6px rgba(0,0,0,0.3);
-  font-size:11px; pointer-events:none; display:none;
+  font-size:11px; pointer-events:none; display:none; max-width: 260px;
 }
 
 /* Legend */
@@ -94,7 +95,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 .legend-row{ display:flex; align-items:center; }
 .legend-color-box{ width:16px; height:16px; margin-right:6px; border:1px solid #ccc; border-radius:3px; }
 
-/* Imagen del raster: nítida + evita "checkerboard" en iOS */
+/* Raster image tweaks */
 .forecast-raster{
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -104,14 +105,14 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 
 /* ================= RESPONSIVE (MÓVIL) ================= */
 @media (max-width: 600px){
-  #site-header{ height: 64px; padding: 0 12px; }
+  :root{ --headerH: 64px; }
+  #site-header{ padding: 0 12px; }
   .header-left img{ height: 42px; }
   .header-text .brand{ font-size: 20px; }
   .header-text .tagline{ font-size: 12px; font-weight: 700; }
-  #map{ top:64px; }
 
   #menu-panel{
-    top: 74px;
+    top: calc(var(--headerH) + 10px);
     left: 10px;
     right: 10px;
     transform: none;
@@ -126,7 +127,6 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 
   .menu-controls{ flex-direction: column; align-items: stretch; gap:10px; }
   .period-container{ justify-content: space-between; }
-  .period-container select{ width: 100%; }
 }
 </style>
 </head>
@@ -179,51 +179,47 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* =========================================================
-   ✅ ESTE ES EL ARCHIVO "LIMPIO" QUE CORRIGE:
-   1) desfase por "half-cell" / bounds mal calculado
-   2) hover que no coincide con colores (usa vecino más cercano)
-   3) cuadriculado / piezas faltantes en iOS (workaround Leaflet+iOS)
-   ---------------------------------------------------------
-   Si el raster se ve corrido EXACTAMENTE ~media celda:
-     LAT_SHIFT_CELLS = -0.5   (si está al norte, muévelo al sur)
-     LON_SHIFT_CELLS = -0.5   (si está al este, muévelo al oeste)
-   ========================================================= */
+   index.html OPERATIVO (tiempo real):
+   - Manifest siempre fresco (no-store + cache-busting)
+   - Raster alineado (bounds correctos) + ajuste por URL
+   - Hover robusto (clamp + nearest válido)
+   - iOS checkerboard fix
+========================================================= */
 
-// 🔧 Ajustes finos (en unidades de CELDA, no en grados)
-const HALF_CELL = 0.5;          // 0.5 = lon/lat son centros (lo normal)
-const LAT_SHIFT_CELLS = -10.0;    // ej. -0.5 (mover medio pixel al SUR)
-const LON_SHIFT_CELLS = 0.0;    // ej. -0.5 (mover medio pixel al OESTE)
+/* ---------- Ajustes por URL (sin tocar código) ----------
+   Ejemplos:
+   ?latShift=-0.5&lonShift=0.0
+   ?half=0.5&latShift=-0.25&lonShift=0.25
+--------------------------------------------------------- */
+const params = new URLSearchParams(location.search);
+const HALF_CELL      = parseFloat(params.get("half") ?? "0.5");      // normalmente 0.5 si lon/lat son centros
+const LAT_SHIFT_CELLS= parseFloat(params.get("latShift") ?? "0.0");  // mover en celdas (ej -0.5)
+const LON_SHIFT_CELLS= parseFloat(params.get("lonShift") ?? "0.0");
+const HOVER_RADIUS   = parseInt(params.get("hoverR") ?? "2", 10);    // radio vecinos válidos
+const DEBUG          = (params.get("debug") === "1");
 
-// iOS: evita el bug de "checkerboard" (cuadros faltantes)
+/* iOS workaround: “checkerboard” */
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-if (IS_IOS && L && L.Browser){
-  // Leaflet decide si usa translate3d; desactivarlo suele arreglar el bug en Safari iOS
-  L.Browser.any3d = false;
-}
+if (IS_IOS && L && L.Browser){ L.Browser.any3d = false; }
 
 /* ================= CONFIG ================= */
 let currentData = null;
-const VAR_LABEL = "Lluvia acumulada";
-const VAR_UNITS = "mm";
-
 let currentType = "mensual";
 let steps = [];
 let map, rasterOverlay, legend;
 let rasterBlobUrl = null;
 
-// Boundaries (CORS OK)
+const VAR_LABEL = "Lluvia acumulada";
+const VAR_UNITS = "mm";
+
 const URL_MX_STATES  = "https://raw.githubusercontent.com/strotgen/mexico-leaflet/master/states.geojson";
 const URL_MX_COUNTRY = "https://raw.githubusercontent.com/johan/world.geo.json/master/countries/MEX.geo.json";
-
-// Si quieres el borde nacional, pon true
 const DRAW_COUNTRY_BORDER = false;
 const STATE_LINE_WEIGHT   = 1.0;
 const COUNTRY_LINE_WEIGHT = 1.5;
 
 /* ================= UTILS ================= */
-function monthNameEs(m){
-  return ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1];
-}
+function monthNameEs(m){ return ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m-1]; }
 function prettyFromName(f){
   let m = f.match(/_(\d{6})_(\d{6})/);
   if (m) return `${monthNameEs(+m[1].slice(4))}–${monthNameEs(+m[2].slice(4))} ${m[1].slice(0,4)}`;
@@ -231,18 +227,15 @@ function prettyFromName(f){
   if (m) return `${monthNameEs(+m[1].slice(4))} ${m[1].slice(0,4)}`;
   return f;
 }
-function normalizeLon(lon){
-  // 0–360 -> -180–180
-  return (lon > 180) ? lon - 360 : lon;
-}
+function normalizeLon(lon){ return (lon > 180) ? lon - 360 : lon; }
+function clamp(v, lo, hi){ return Math.min(hi, Math.max(lo, v)); }
+
 async function fetchJsonSafe(url, cacheMode="force-cache"){
   const res = await fetch(url, { cache: cacheMode });
   const txt = await res.text();
   if (!res.ok) throw new Error(`HTTP ${res.status} al descargar: ${url}`);
   const t = txt.trim();
-  if (!(t.startsWith("{") || t.startsWith("["))){
-    throw new Error(`No parece JSON: ${url}\nInicio: ${t.slice(0,120)}`);
-  }
+  if (!(t.startsWith("{") || t.startsWith("["))) throw new Error(`No parece JSON: ${url}\nInicio: ${t.slice(0,120)}`);
   return JSON.parse(t);
 }
 
@@ -257,27 +250,18 @@ function initMap(){
     markerZoomAnimation: !IS_IOS
   }).setView([23,-102],5);
 
-  L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
-    { attribution: "© OpenStreetMap, © CARTO" }
-  ).addTo(map);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
+    { attribution: "© OpenStreetMap, © CARTO" }).addTo(map);
 
-  L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.6 }
-  ).addTo(map);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
+    { opacity: 0.6 }).addTo(map);
 
-  L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.9 }
-  ).addTo(map);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
+    { opacity: 0.9 }).addTo(map);
 
-  L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.15 }
-  ).addTo(map);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
+    { opacity: 0.15 }).addTo(map);
 
-  // Legend control
   legend = L.control({ position: "bottomright" });
   legend.onAdd = function(){
     const div = L.DomUtil.create("div", "legend");
@@ -294,44 +278,50 @@ function initMap(){
   };
   legend.addTo(map);
 
-  // Hover: vecino más cercano (siempre coincide con el pixel)
-  map.on("mousemove", e => {
+  // Hover (mouse + touch/pointer)
+  const hoverHandler = (ev) => {
     if (!currentData || !currentData._render) return;
 
-    const v = valueAtPixelNearest(e.latlng);
-    const box = document.getElementById("hoverBox");
+    const latlng = ev.latlng;
+    const v = valueAtPixelNearestValid(latlng, HOVER_RADIUS);
 
-    if (v === null){
-      box.style.display = "none";
-      return;
-    }
+    const box = document.getElementById("hoverBox");
+    const valueStr = (v === null) ? "Sin dato" : `${v.toFixed(1)} ${VAR_UNITS}`;
 
     box.innerHTML = `
       <b>${VAR_LABEL}</b><br>
-      Valor: <b>${v.toFixed(1)} ${VAR_UNITS}</b><br>
-      Lat: ${e.latlng.lat.toFixed(2)}°<br>
-      Lon: ${e.latlng.lng.toFixed(2)}°<br>
+      Valor: <b>${valueStr}</b><br>
+      Lat: ${latlng.lat.toFixed(2)}°<br>
+      Lon: ${latlng.lng.toFixed(2)}°<br>
       Tipo: ${currentType === "mensual" ? "Mensual" : "Bimestral"}
+      ${DEBUG ? `<br><span style="color:#666">half=${HALF_CELL}, latShift=${LAT_SHIFT_CELLS}, lonShift=${LON_SHIFT_CELLS}</span>` : ""}
     `;
-    box.style.left = (e.originalEvent.pageX + 15) + "px";
-    box.style.top  = (e.originalEvent.pageY + 15) + "px";
-    box.style.display = "block";
-  });
 
-  map.on("mouseout", () => {
-    document.getElementById("hoverBox").style.display = "none";
-  });
+    // posiciona cerca del cursor/touch
+    const oe = ev.originalEvent;
+    const px = (oe && (oe.pageX || (oe.touches && oe.touches[0]?.pageX))) ?? 0;
+    const py = (oe && (oe.pageY || (oe.touches && oe.touches[0]?.pageY))) ?? 0;
+    box.style.left = (px + 15) + "px";
+    box.style.top  = (py + 15) + "px";
+    box.style.display = "block";
+  };
+
+  map.on("mousemove", hoverHandler);
+  map.on("pointermove", hoverHandler);
+
+  map.on("mouseout", () => { document.getElementById("hoverBox").style.display = "none"; });
+  map.on("dragstart", () => { document.getElementById("hoverBox").style.display = "none"; });
 }
 
-/* ================= México (estados + borde opcional + limitar vista) ================= */
+/* ================= México boundaries ================= */
 let mxStatesLayer = null;
 let mxCountryLayer = null;
 
 async function loadMexicoBoundaries(){
   try {
     const [countryGeojson, statesGeojson] = await Promise.all([
-      fetchJsonSafe(URL_MX_COUNTRY),
-      fetchJsonSafe(URL_MX_STATES)
+      fetchJsonSafe(URL_MX_COUNTRY, "force-cache"),
+      fetchJsonSafe(URL_MX_STATES, "force-cache")
     ]);
 
     if (mxStatesLayer) map.removeLayer(mxStatesLayer);
@@ -358,7 +348,7 @@ async function loadMexicoBoundaries(){
   }
 }
 
-/* ================= Panel colapsable (móvil) + leyenda colapsable ================= */
+/* ================= Panel/Leyenda colapsables ================= */
 function setupCollapsibles(){
   const menuPanel = document.getElementById("menu-panel");
   const menuBody  = document.getElementById("menuBody");
@@ -408,57 +398,50 @@ const PRATE_COLORS = [
 ];
 function hexToRGBA(hex, alpha=255){
   const c = hex.replace("#","");
-  return [
-    parseInt(c.substring(0,2),16),
-    parseInt(c.substring(2,4),16),
-    parseInt(c.substring(4,6),16),
-    alpha
-  ];
+  return [parseInt(c.substring(0,2),16), parseInt(c.substring(2,4),16), parseInt(c.substring(4,6),16), alpha];
 }
 function getColorPrate(v){
   if (!isFinite(v) || v < 1) return [255,255,255,0];
-  for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
-    if (v >= PRATE_LEVELS[i] && v < PRATE_LEVELS[i+1]){
-      return hexToRGBA(PRATE_COLORS[i+1], 200);
-    }
+  for (let i=0; i<PRATE_LEVELS.length-1; i++){
+    if (v >= PRATE_LEVELS[i] && v < PRATE_LEVELS[i+1]) return hexToRGBA(PRATE_COLORS[i+1], 200);
   }
-  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 200);
+  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length-1], 200);
 }
 function buildLegendHTML(periodLabel){
   let html = `<b>${VAR_LABEL} (${VAR_UNITS})</b><br>`;
   html += `<span style="font-size:11px">${periodLabel}</span><br><br>`;
-  for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
+  for (let i=0; i<PRATE_LEVELS.length-1; i++){
     html += `
       <div class="legend-row">
         <div class="legend-color-box" style="background:${PRATE_COLORS[i+1]}"></div>
         <span>${PRATE_LEVELS[i]} – ${PRATE_LEVELS[i+1]}</span>
-      </div>
-    `;
+      </div>`;
   }
   html += `
     <div class="legend-row">
       <div class="legend-color-box" style="background:${PRATE_COLORS[PRATE_COLORS.length-1]}"></div>
       <span>&gt; ${PRATE_LEVELS[PRATE_LEVELS.length-1]}</span>
-    </div>
-  `;
+    </div>`;
   return html;
 }
 
-/* ================= RASTER (bounds correctos + hover consistente) ================= */
+/* ================= RASTER: bounds + render ================= */
 function computeStep(arr){
   if (!arr || arr.length < 2) return 0;
-  // paso robusto: usa la mediana de diffs (evita ruido)
   const diffs = [];
   for (let i=1;i<arr.length;i++){
     const d = arr[i]-arr[i-1];
-    if (isFinite(d) && d!==0) diffs.push(Math.abs(d));
+    if (isFinite(d) && d !== 0) diffs.push(Math.abs(d));
   }
   diffs.sort((a,b)=>a-b);
   return diffs.length ? diffs[Math.floor(diffs.length/2)] : Math.abs(arr[1]-arr[0]);
 }
 
 function drawRaster(data){
-  // Copias locales
+  if (!data || !data.grid || !data.grid.lat || !data.grid.lon || !data.grid.data){
+    throw new Error("JSON no tiene estructura esperada: data.grid.{lat,lon,data}");
+  }
+
   let lat = data.grid.lat.slice();
   let lon = data.grid.lon.map(normalizeLon);
   let z   = data.grid.data; // [ny][nx]
@@ -466,51 +449,45 @@ function drawRaster(data){
   const ny = lat.length;
   const nx = lon.length;
 
-  // 1) Lon creciente (si no, reordenar y reordenar z)
+  // asegurar lon creciente
   let lonIncreasing = true;
-  for (let j=1; j<nx; j++){
-    if (!(lon[j] > lon[j-1])) { lonIncreasing = false; break; }
-  }
+  for (let j=1;j<nx;j++){ if (!(lon[j] > lon[j-1])) { lonIncreasing=false; break; } }
   if (!lonIncreasing){
     const idx = lon.map((v,i)=>[v,i]).sort((a,b)=>a[0]-b[0]).map(p=>p[1]);
     lon = idx.map(i => lon[i]);
     z   = z.map(row => idx.map(j => row[j]));
   }
 
-  // 2) Paso (celda) en grados
   const dLat = computeStep(lat);
   const dLon = computeStep(lon);
 
-  // 3) Bounds usando PRIMER y ÚLTIMO centro (no min/max + spread)
   const latInc = (ny>1) ? (lat[1] > lat[0]) : true;
   const lon0 = lon[0], lonN = lon[nx-1];
 
-  const south0 = latInc ? lat[0]      : lat[ny-1];
-  const north0 = latInc ? lat[ny-1]   : lat[0];
+  const south0 = latInc ? lat[0]    : lat[ny-1];
+  const north0 = latInc ? lat[ny-1] : lat[0];
 
-  let west  = lon0 - dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
-  let east  = lonN + dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
-  let south = south0 - dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
-  let north = north0 + dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
+  // bounds (centros -> bordes) + ajuste fino por CELDAS
+  const west  = lon0 - dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
+  const east  = lonN + dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
+  const south = south0 - dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
+  const north = north0 + dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
 
   const bounds = [[south, west],[north, east]];
 
-  // 4) Render a canvas
+  // canvas render
   const canvas = document.createElement("canvas");
-  canvas.width  = nx;
-  canvas.height = ny;
+  canvas.width = nx; canvas.height = ny;
   const ctx = canvas.getContext("2d", { willReadFrequently: false });
   const img = ctx.createImageData(nx, ny);
 
-  for (let i=0; i<ny; i++){
-    for (let j=0; j<nx; j++){
+  for (let i=0;i<ny;i++){
+    for (let j=0;j<nx;j++){
       const v = z[i][j];
       if (v == null || !isFinite(v)) continue;
 
       const rgba = getColorPrate(v);
-
-      // “north on top” (si lat está creciente, invertimos)
-      const yPix = latInc ? (ny - 1 - i) : i;
+      const yPix = latInc ? (ny - 1 - i) : i; // north on top
       const k = (yPix * nx + j) * 4;
 
       img.data[k]   = rgba[0];
@@ -521,16 +498,11 @@ function drawRaster(data){
   }
   ctx.putImageData(img, 0, 0);
 
-  // 5) Usar Blob URL (mejor que dataURL en Safari iOS)
   canvas.toBlob(blob => {
     if (!blob) return;
 
-    // limpiar overlay previo + blob URL previo
     if (rasterOverlay) map.removeLayer(rasterOverlay);
-    if (rasterBlobUrl){
-      URL.revokeObjectURL(rasterBlobUrl);
-      rasterBlobUrl = null;
-    }
+    if (rasterBlobUrl){ URL.revokeObjectURL(rasterBlobUrl); rasterBlobUrl = null; }
 
     rasterBlobUrl = URL.createObjectURL(blob);
     rasterOverlay = L.imageOverlay(rasterBlobUrl, bounds, {
@@ -539,7 +511,7 @@ function drawRaster(data){
       className: "forecast-raster"
     }).addTo(map);
 
-    // iOS: fuerza repaint (parpadeo mínimo)
+    // iOS repaint
     if (IS_IOS){
       const el = rasterOverlay.getElement();
       if (el){
@@ -549,19 +521,21 @@ function drawRaster(data){
       }
     }
 
-    // Guardar render EXACTO para hover
+    // guardar render exacto para hover
     currentData._render = {
-      z: z,
-      nx: nx,
-      ny: ny,
-      latIncreasing: latInc,
+      z, nx, ny, latIncreasing: latInc,
       bounds: rasterOverlay.getBounds()
     };
+
+    if (DEBUG){
+      console.log("[DEBUG] dLat/dLon:", dLat, dLon, "bounds:", bounds, "nx/ny:", nx, ny);
+    }
   }, "image/png");
 }
 
-function valueAtPixelNearest(latlng){
-  const R = currentData? currentData._render : null;
+/* ================= HOVER: nearest válido ================= */
+function valueAtPixelNearestValid(latlng, r=2){
+  const R = currentData ? currentData._render : null;
   if (!R) return null;
 
   const b = R.bounds;
@@ -570,71 +544,91 @@ function valueAtPixelNearest(latlng){
   const y = (b.getNorth() - latlng.lat) / (b.getNorth() - b.getSouth());
   if (x < 0 || x > 1 || y < 0 || y > 1) return null;
 
-  // coords de pixel en la imagen (top-left)
   const xPix = x * (R.nx - 1);
   const yPix = y * (R.ny - 1);
 
-  // convertir a índice i del grid original
   const iFloat = R.latIncreasing ? ((R.ny - 1) - yPix) : yPix;
   const jFloat = xPix;
 
-  const i = Math.round(iFloat);
-  const j = Math.round(jFloat);
+  const i0 = clamp(Math.round(iFloat), 0, R.ny - 1);
+  const j0 = clamp(Math.round(jFloat), 0, R.nx - 1);
 
-  if (i < 0 || j < 0 || i >= R.ny || j >= R.nx) return null;
+  let v = R.z[i0][j0];
+  if (v != null && isFinite(v)) return v;
 
-  const v = R.z[i][j];
-  return (v == null || !isFinite(v)) ? null : v;
+  // buscar vecino válido cercano (quita “huecos” por máscara)
+  for (let di=-r; di<=r; di++){
+    for (let dj=-r; dj<=r; dj++){
+      const i = i0 + di, j = j0 + dj;
+      if (i<0 || j<0 || i>=R.ny || j>=R.nx) continue;
+      v = R.z[i][j];
+      if (v != null && isFinite(v)) return v;
+    }
+  }
+  return null;
 }
 
 /* ================= DATA ================= */
-function loadManifest(){
-  // el manifest conviene NO caché, porque cambia con nuevos pronósticos
-  fetchJsonSafe(`${currentType}/auto_manifest.json`, "no-store")
-    .then(m => {
-      steps = m.files || m;
-      const sel = document.getElementById("periodSelect");
-      sel.innerHTML = steps.map(f => `<option value="${f}">${prettyFromName(f)}</option>`).join("");
-      loadGrid();
-    })
-    .catch(err => console.error("[manifest]", err));
+async function loadManifest(){
+  // cache-busting para asegurar “tiempo real”
+  const bust = Date.now();
+  const url = `${currentType}/auto_manifest.json?cb=${bust}`;
+
+  try{
+    const m = await fetchJsonSafe(url, "no-store");
+    steps = m.files || m; // soporta {files:[...]} o [...]
+    if (!Array.isArray(steps) || steps.length === 0) throw new Error("Manifest vacío o inválido.");
+
+    const sel = document.getElementById("periodSelect");
+    sel.innerHTML = steps.map(f => `<option value="${f}">${prettyFromName(f)}</option>`).join("");
+
+    // carga el primero por defecto
+    loadGrid();
+  }catch(err){
+    console.error("[manifest]", err);
+    alert("No pude cargar el manifest. Revisa que exista: " + url);
+  }
 }
 
-function loadGrid(){
+async function loadGrid(){
   const sel = document.getElementById("periodSelect");
-  if (!sel.value) return;
+  if (!sel || !sel.value) return;
 
-  fetchJsonSafe(`${currentType}/${sel.value}`, "force-cache")
-    .then(json => {
-      currentData = json;
-      drawRaster(json);
+  // el grid puede cachearse, pero si quieres ultra-real-time, usa cb también:
+  const url = `${currentType}/${sel.value}?cb=${Date.now()}`;
 
-      const body = document.querySelector(".legend-body");
-      if (body){
-        body.innerHTML = buildLegendHTML(
-          `${currentType === "mensual" ? "Mensual" : "Bimestral"} – ${prettyFromName(sel.value)}`
-        );
-      }
-    })
-    .catch(err => {
-      console.error("[grid]", err);
-      alert("No pude cargar el JSON del pronóstico. Revisa rutas/archivo.");
-    });
+  try{
+    const json = await fetchJsonSafe(url, "no-store"); // no-store evita que se quede viejo
+    currentData = json;
+
+    drawRaster(json);
+
+    const body = document.querySelector(".legend-body");
+    if (body){
+      body.innerHTML = buildLegendHTML(
+        `${currentType === "mensual" ? "Mensual" : "Bimestral"} – ${prettyFromName(sel.value)}`
+      );
+    }
+  }catch(err){
+    console.error("[grid]", err);
+    alert("No pude cargar el JSON del pronóstico:\n" + url);
+  }
 }
 
 /* ================= EVENTS ================= */
-document.getElementById("typeToggle").onchange = e =>{
+document.getElementById("typeToggle").addEventListener("change", e => {
   currentType = e.target.checked ? "bimestral" : "mensual";
   loadManifest();
-};
-document.getElementById("periodSelect").onchange = loadGrid;
+});
 
-window.onload = ()=>{
+document.getElementById("periodSelect").addEventListener("change", loadGrid);
+
+window.addEventListener("load", () => {
   initMap();
-  loadManifest();
   loadMexicoBoundaries();
   setupCollapsibles();
-};
+  loadManifest();
+});
 </script>
 </body>
 </html>
