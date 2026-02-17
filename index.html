@@ -2,39 +2,79 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Pronóstico NMME – Lluvia acumulada (México)</title>
+<title>Pronóstico – Lluvia acumulada</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <style>
 html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
-#map { position:absolute; top:80px; bottom:0; left:0; right:0; z-index:1; }
+:root{ --headerH: 90px; }   /* <-- agrégalo arriba del #map */
+#map { position:absolute; top: var(--headerH); bottom:0; left:0; right:0; z-index:1; }
 
-/* ================= HEADER ================= */
-#site-header{
-  position: fixed; top: 0; left: 0; right: 0; height: 80px;
-  background: #ffffff; display: flex; justify-content: space-between; align-items: center;
-  padding: 0 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); z-index: 3000;
-}
-.header-left{ display: flex; align-items: center; gap: 14px; }
-.header-left img{ height: 52px; }
-.header-text .brand{ font-size: 32px; font-weight: 800; color: #2c6cb0; line-height: 1.1; }
-.header-text .tagline{ font-size: 20px; font-weight: 800; color: #2c6cb0; }
-.btn-contacto{
-  border: 1px solid #2c6cb0; padding: 8px 14px; border-radius: 6px;
-  text-decoration: none; color: #2c6cb0; font-size: 13px; transition: all 0.2s ease;
-}
-.btn-contacto:hover{ background: #2c6cb0; color: white; }
-
-/* ================= MENU PANEL ================= */
+/* Asegura que el panel y sus controles reciban toques en iOS */
 #menu-panel{
-  position:absolute; top:110px; left:50%; transform:translateX(-50%);
-  background:rgba(255,255,255,0.96); padding:14px 18px; border-radius:14px;
-  box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:2000; min-width:360px;
+  pointer-events: auto;
+  touch-action: auto;
+  -webkit-tap-highlight-color: transparent;
 }
-.menu-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.menu-title{ font-size:15px; font-weight:800; color:#1f3b5c; margin:0; }
-.menu-subtitle{ display:block; font-size:12px; font-weight:500; color:#6b7c93; margin-top:2px; }
+#menu-panel *{
+  pointer-events: auto;
+  touch-action: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Fuerza el picker nativo del select */
+#menu-panel select{
+  -webkit-appearance: menulist;
+  appearance: menulist;
+}
+/* ================= HEADER ================= */
+/* ================= MENU PANEL ================= */
+/* ================= HEADER (GRID) ================= */
+#site-header{
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 3000;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+
+  /* 👇 layout real */
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+
+  height: 90px;
+  padding: 0 24px;
+  gap: 14px;
+}
+
+.header-left{ display:flex; align-items:center; justify-self: start; }
+.header-left img{ height: 65px; }
+
+.header-text{ text-align:center; justify-self: center; }
+.header-text .brand{ font-size: 36px; font-weight: 800; color:#2c6cb0; line-height: 1.05; }
+.header-text .tagline{ font-size: 22px; font-weight: 800; color:#2c6cb0; line-height: 1.05; }
+
+.header-right{ justify-self: end; }
+.btn-contacto{
+  border: 1px solid #2c6cb0;
+  padding: 12px 20px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #2c6cb0;
+  font-size: 16px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-contacto:hover{ background:#2c6cb0; color:#fff; }
+
+
+.menu-header{ display:flex; align-items:center; justify-content:center; gap:10px; }
+.menu-header{ position: relative; }
+.menu-header > div{ width: 100%; text-align: center; }
+#menuToggleBtn{ position: absolute; right: 0; top: 0; }
+.menu-title{ font-size:20px; font-weight:800; color:#1f3b5c; margin:0; }
+.menu-subtitle{ display:block; font-size:16px; font-weight:500; color:#6b7c93; margin-top:2px; justify-content:center; }
 
 #menuToggleBtn{
   display:none;
@@ -94,40 +134,75 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 .legend-row{ display:flex; align-items:center; }
 .legend-color-box{ width:16px; height:16px; margin-right:6px; border:1px solid #ccc; border-radius:3px; }
 
-/* Imagen del raster: nítida + evita "checkerboard" en iOS */
-.forecast-raster{
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-}
+/* Raster nítido (Leaflet lo dibuja como <img>) */
+.leaflet-image-layer { image-rendering: pixelated; image-rendering: crisp-edges; }
 
 /* ================= RESPONSIVE (MÓVIL) ================= */
+/* PC */
+#menu-panel{
+  position:absolute;
+  top: calc(var(--headerH) + 14px);
+  right: 14px;
+  left:auto;
+  transform:none;
+  background:rgba(255,255,255,0.92);
+  padding:12px 14px;
+  border-radius:14px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.18);
+  z-index:2000;
+  min-width:340px;
+  max-width:420px;
+}
+
+/* MÓVIL */
 @media (max-width: 600px){
-  #site-header{ height: 64px; padding: 0 12px; }
-  .header-left img{ height: 42px; }
-  .header-text .brand{ font-size: 20px; }
-  .header-text .tagline{ font-size: 12px; font-weight: 700; }
-  #map{ top:64px; }
+  :root{ --headerH: 110px; }
+  #menuToggleBtn{ display:block; }
+
+  #site-header{
+    height:auto;
+    padding:8px 10px 10px;
+    gap:6px;
+    grid-template-columns:auto 1fr auto;
+    grid-template-rows:auto auto;
+  }
+
+  .header-left img{ height:36px; }
+
+  .header-text{
+    grid-column:1 / -1;
+    grid-row:2;
+    text-align:center;
+  }
+
+  .header-text .brand{ font-size:18px; }
+  .header-text .tagline{ font-size:11px; font-weight:700; }
+
+  .btn-contacto{
+    padding:7px 10px;
+    font-size:13px;
+    border-radius:10px;
+  }
 
   #menu-panel{
-    top: 74px;
+    position: absolute;
+    top: calc(var(--headerH) + 8px);
     left: 10px;
     right: 10px;
-    transform: none;
+    z-index: 2000;
     min-width: unset;
-    border-radius: 14px;
+    max-width: none;
     padding: 10px 12px;
   }
 
-  .menu-title{ font-size: 14px; }
-  .menu-subtitle{ font-size: 11px; }
-  #menuToggleBtn{ display:inline-flex; align-items:center; justify-content:center; }
+  .menu-title{ font-size:14px; }
+  .menu-subtitle{ font-size:11px; }
 
   .menu-controls{ flex-direction: column; align-items: stretch; gap:10px; }
   .period-container{ justify-content: space-between; }
   .period-container select{ width: 100%; }
 }
+
 </style>
 </head>
 
@@ -135,11 +210,12 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 <header id="site-header">
   <div class="header-left">
     <img src="logo2.jpeg" alt="ClimaproAgro logo">
-    <div class="header-text">
+  </div>
+  <div class="header-text">
       <div class="brand">ClimaproAgro</div>
       <div class="tagline">Información Climática para la Agricultura</div>
-    </div>
   </div>
+  
   <div class="header-right">
     <a href="https://www.climaproagro.com/contacto" class="btn-contacto">Contacto</a>
   </div>
@@ -148,7 +224,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 <div id="menu-panel">
   <div class="menu-header">
     <div>
-      <div class="menu-title">Pronóstico NMME – Lluvia acumulada</div>
+      <div class="menu-title">Pronóstico – Lluvia acumulada</div>
       <span class="menu-subtitle">México</span>
     </div>
     <button id="menuToggleBtn" type="button" aria-label="Mostrar/Ocultar panel">☰</button>
@@ -178,28 +254,17 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* =========================================================
-   ✅ ESTE ES EL ARCHIVO "LIMPIO" QUE CORRIGE:
-   1) desfase por "half-cell" / bounds mal calculado
-   2) hover que no coincide con colores (usa vecino más cercano)
-   3) cuadriculado / piezas faltantes en iOS (workaround Leaflet+iOS)
-   ---------------------------------------------------------
-   Si el raster se ve corrido EXACTAMENTE ~media celda:
-     LAT_SHIFT_CELLS = -0.5   (si está al norte, muévelo al sur)
-     LON_SHIFT_CELLS = -0.5   (si está al este, muévelo al oeste)
-   ========================================================= */
-
-// 🔧 Ajustes finos (en unidades de CELDA, no en grados)
-const HALF_CELL = 0.5;          // 0.5 = lon/lat son centros (lo normal)
-const LAT_SHIFT_CELLS = -10.0;    // ej. -0.5 (mover medio pixel al SUR)
-const LON_SHIFT_CELLS = 0.0;    // ej. -0.5 (mover medio pixel al OESTE)
-
-// iOS: evita el bug de "checkerboard" (cuadros faltantes)
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-if (IS_IOS && L && L.Browser){
-  // Leaflet decide si usa translate3d; desactivarlo suele arreglar el bug en Safari iOS
-  L.Browser.any3d = false;
-}
+/* ================= AJUSTES DE ALINEACIÓN =================
+  EDGE_FACTOR:
+    0.5 = lon/lat son CENTROS de celda (lo normal)
+  SHIFT_CELLS:
+    -0.5 = mover 1/2 celda al SUR (si el raster está corrido al NORTE)
+    -1.0 = mover 1 celda al SUR
+    +0.5 = mover 1/2 celda al NORTE (si estuviera corrido al SUR)
+*/
+const EDGE_FACTOR      = 0.5;
+const LAT_SHIFT_CELLS  = 0;   // 👈 tu caso: raster movido al NORTE -> baja al SUR
+const LON_SHIFT_CELLS  = 0;
 
 /* ================= CONFIG ================= */
 let currentData = null;
@@ -209,9 +274,7 @@ const VAR_UNITS = "mm";
 let currentType = "mensual";
 let steps = [];
 let map, rasterOverlay, legend;
-let rasterBlobUrl = null;
 
-// Boundaries (CORS OK)
 const URL_MX_STATES  = "https://raw.githubusercontent.com/strotgen/mexico-leaflet/master/states.geojson";
 const URL_MX_COUNTRY = "https://raw.githubusercontent.com/johan/world.geo.json/master/countries/MEX.geo.json";
 
@@ -235,8 +298,8 @@ function normalizeLon(lon){
   // 0–360 -> -180–180
   return (lon > 180) ? lon - 360 : lon;
 }
-async function fetchJsonSafe(url, cacheMode="force-cache"){
-  const res = await fetch(url, { cache: cacheMode });
+async function fetchJsonSafe(url){
+  const res = await fetch(url, { cache: "force-cache" });
   const txt = await res.text();
   if (!res.ok) throw new Error(`HTTP ${res.status} al descargar: ${url}`);
   const t = txt.trim();
@@ -246,16 +309,62 @@ async function fetchJsonSafe(url, cacheMode="force-cache"){
   return JSON.parse(t);
 }
 
+function prepareGridIndex(data){
+  const lat = data.grid.lat.slice();                 // [ny]
+  let lon   = data.grid.lon.map(normalizeLon);       // [nx]
+  let z     = data.grid.data;                        // [ny][nx]
+  const ny  = lat.length;
+  const nx  = lon.length;
+
+  // Asegurar lon creciente + reordenar Z si hace falta
+  let lonIncreasing = true;
+  for (let j=1; j<nx; j++){
+    if (!(lon[j] > lon[j-1])) { lonIncreasing = false; break; }
+  }
+  if (!lonIncreasing){
+    const idx = lon.map((v,i)=>[v,i]).sort((a,b)=>a[0]-b[0]).map(p=>p[1]);
+    lon = idx.map(i=>lon[i]);
+    z   = z.map(row => idx.map(j=>row[j]));
+  }
+
+  const dLat = (ny > 1) ? (lat[1] - lat[0]) : 0.05;
+  const dLon = (nx > 1) ? (lon[1] - lon[0]) : 0.05;
+
+  data._gridIndex = { lat, lon, z, nx, ny, dLat, dLon, lat0: lat[0], lon0: lon[0] };
+}
+
+function valueAtGridNearest(latq, lonq){
+  if (!currentData || !currentData._gridIndex) return null;
+
+  const G = currentData._gridIndex;
+  const lonN = normalizeLon(lonq);
+
+  // Fuera de dominio (con margen 1/2 celda)
+  if (latq < G.lat0 - G.dLat*0.5 || latq > G.lat[G.ny-1] + G.dLat*0.5) return null;
+  if (lonN < G.lon0 - G.dLon*0.5 || lonN > G.lon[G.nx-1] + G.dLon*0.5) return null;
+
+  const i = Math.round((latq - G.lat0) / G.dLat);
+  const j = Math.round((lonN - G.lon0) / G.dLon);
+
+  if (i < 0 || i >= G.ny || j < 0 || j >= G.nx) return null;
+
+  const v = G.z[i][j];
+  return (v == null || !isFinite(v)) ? null : v;
+}
+
 /* ================= MAP ================= */
 function initMap(){
   map = L.map("map", {
-    zoomControl: true,
-    minZoom: 4,
+    zoomControl: false,
+    minZoom: 6,
     maxZoom: 10,
-    zoomAnimation: !IS_IOS,
-    fadeAnimation: !IS_IOS,
-    markerZoomAnimation: !IS_IOS
-  }).setView([23,-102],5);
+    maxBoundsViscosity: 1.0,
+    tap: false // ✅ iPhone Safari fix
+  });
+
+  map.createPane("labels");
+  map.getPane("labels").style.zIndex = 650;
+  map.getPane("labels").style.pointerEvents = "none";
 
   L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
@@ -263,18 +372,8 @@ function initMap(){
   ).addTo(map);
 
   L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.6 }
-  ).addTo(map);
-
-  L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.9 }
-  ).addTo(map);
-
-  L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
-    { opacity: 0.15 }
+    { opacity: 0.9, pane: "labels" }
   ).addTo(map);
 
   // Legend control
@@ -294,21 +393,21 @@ function initMap(){
   };
   legend.addTo(map);
 
-  // Hover: vecino más cercano (siempre coincide con el pixel)
-  map.on("mousemove", e => {
-    if (!currentData || !currentData._render) return;
+  // ====== PC: hover con mouse ======
+  map.on("mousemove", (e) => {
+    if (!currentData) return;
 
-    const v = valueAtPixelNearest(e.latlng);
+    const val = valueAtGridNearest(e.latlng.lat, e.latlng.lng);
     const box = document.getElementById("hoverBox");
 
-    if (v === null){
+    if (val === null){
       box.style.display = "none";
       return;
     }
 
     box.innerHTML = `
       <b>${VAR_LABEL}</b><br>
-      Valor: <b>${v.toFixed(1)} ${VAR_UNITS}</b><br>
+      Valor: <b>${val.toFixed(1)} ${VAR_UNITS}</b><br>
       Lat: ${e.latlng.lat.toFixed(2)}°<br>
       Lon: ${e.latlng.lng.toFixed(2)}°<br>
       Tipo: ${currentType === "mensual" ? "Mensual" : "Bimestral"}
@@ -321,6 +420,33 @@ function initMap(){
   map.on("mouseout", () => {
     document.getElementById("hoverBox").style.display = "none";
   });
+
+  // ====== MÓVIL: tap/click para mostrar valor ======
+  map.on("click", (e) => {
+    // 👇 Si el tap viene de UI, NO hagas hover del mapa
+    const tgt = e.originalEvent?.target;
+    if (tgt && (tgt.closest("#menu-panel") || tgt.closest(".legend") || tgt.closest("#site-header"))){
+      return;
+    }
+
+    if (!currentData) return;
+
+    const p = e.originalEvent || {};
+    const t = (p.touches && p.touches[0]) ? p.touches[0] : null;
+
+    // pageX/pageY en iOS a veces vienen en touches
+    let x = (p.pageX ?? (t && t.pageX)) || 0;
+    let y = (p.pageY ?? (t && t.pageY)) || 0;
+
+    if (!x || !y){
+      const c = map.getContainer().getBoundingClientRect();
+      x = c.left + c.width / 2;
+      y = c.top  + c.height / 2;
+    }
+
+    showValueBox(e.latlng, { x, y });
+  });
+
 }
 
 /* ================= México (estados + borde opcional + limitar vista) ================= */
@@ -350,8 +476,8 @@ async function loadMexicoBoundaries(){
     }
 
     const boundsMx = (mxCountryLayer ? mxCountryLayer.getBounds() : mxStatesLayer.getBounds());
-    map.fitBounds(boundsMx.pad(0.03));
-    map.setMaxBounds(boundsMx.pad(0.08));
+    map.fitBounds(boundsMx.pad(0.02));
+    map.setMaxBounds(boundsMx.pad(0.05));
   } catch (err){
     console.error("[Mexico boundaries]", err);
     alert("No pude cargar límites de México/estados. Revisa tu conexión o las URLs de GeoJSON.");
@@ -363,24 +489,68 @@ function setupCollapsibles(){
   const menuPanel = document.getElementById("menu-panel");
   const menuBody  = document.getElementById("menuBody");
   const menuBtn   = document.getElementById("menuToggleBtn");
-
   if (menuPanel){
+    // Leaflet: evita que el mapa capture toques/clicks dentro del panel
     L.DomEvent.disableClickPropagation(menuPanel);
     L.DomEvent.disableScrollPropagation(menuPanel);
+
+    // iOS/Safari: corta eventos "tempranos" que Leaflet usa para arrastrar/zoom
+    //L.DomEvent.on(menuPanel, "touchstart", L.DomEvent.stopPropagation);
+    //L.DomEvent.on(menuPanel, "touchmove",  L.DomEvent.stopPropagation);
+    menuPanel.addEventListener("touchstart", (ev) => {
+      // si el toque viene de un input/select, no lo bloquees
+      const t = ev.target;
+      if (t && (t.tagName === "SELECT" || t.tagName === "INPUT" || t.tagName === "LABEL" || t.tagName === "BUTTON")) return;
+      ev.stopPropagation();
+    }, { passive: true });
+
+    menuPanel.addEventListener("touchmove", (ev) => {
+      const t = ev.target;
+      if (t && (t.tagName === "SELECT" || t.tagName === "INPUT")) return;
+      ev.stopPropagation();
+    }, { passive: true });
+    //L.DomEvent.on(menuPanel, "pointerdown",L.DomEvent.stopPropagation);
+    //L.DomEvent.on(menuPanel, "mousedown",  L.DomEvent.stopPropagation);
+    //L.DomEvent.on(menuPanel, "wheel",      L.DomEvent.stopPropagation);
+    const isUI = (el) => !!el && !!el.closest("select, input, label, button, a, option");
+
+    menuPanel.addEventListener("pointerdown", (ev) => {
+      if (isUI(ev.target)) return;   // ✅ deja que iOS abra el select
+      ev.stopPropagation();
+    }, { passive: true });
+
+    menuPanel.addEventListener("mousedown", (ev) => {
+      if (isUI(ev.target)) return;
+      ev.stopPropagation();
+    }, { passive: true });
+
+    menuPanel.addEventListener("wheel", (ev) => {
+      ev.stopPropagation();
+    }, { passive: true });
+
+
+    // Si tocas el panel, ocultamos el hoverBox (no estorba)
+    L.DomEvent.on(menuPanel, "click", () => {
+      const box = document.getElementById("hoverBox");
+      if (box) box.style.display = "none";
+    });
   }
 
   const isMobile = window.matchMedia && window.matchMedia("(max-width: 600px)").matches;
 
-  if (isMobile){
+  if (isMobile && menuBody && menuBtn){
     menuBody.classList.add("is-collapsed");
     menuBtn.textContent = "☰";
   }
 
-  menuBtn.addEventListener("click", () => {
-    const collapsed = menuBody.classList.toggle("is-collapsed");
-    menuBtn.textContent = collapsed ? "☰" : "✕";
-  });
+  if (menuBtn && menuBody){
+    menuBtn.addEventListener("click", () => {
+      const collapsed = menuBody.classList.toggle("is-collapsed");
+      menuBtn.textContent = collapsed ? "☰" : "✕";
+    });
+  }
 
+  // Leyenda colapsable
   const legendEl = document.querySelector(".legend");
   if (!legendEl) return;
 
@@ -400,12 +570,29 @@ function setupCollapsibles(){
   }
 }
 
+
 /* ================= COLORS ================= */
 const PRATE_LEVELS = [1,30,60,90,120,180,240,360,500,600,700,800,1000];
+//const PRATE_COLORS = [
+//  "#ffffff", "#ffffff", "#fee391", "#fec44f", "#addd8e", "#78c679",
+//  "#41ab5d", "#238443", "#1f78b4", "#225ea8", "#253494", "#54278f", "#7a0177"
+//];
 const PRATE_COLORS = [
-  "#ffffff", "#ffffff", "#fee391", "#fec44f", "#addd8e", "#78c679",
-  "#41ab5d", "#238443", "#1f78b4", "#225ea8", "#253494", "#54278f", "#7a0177"
+  "#FFFFFF",  // 1–30
+  "#F8E8B8",  // 30–60
+  "#F8D080",  // 60–90
+  "#E8E898",  // 90–120
+  "#A0E090",  // 120–180
+  "#80E0F8",  // 180–240
+  "#38D0F8",  // 240–360
+  "#00B0F0",  // 360–500
+  "#1870B8",  // 500–600
+  "#1050A8",  // 600–700
+  "#7060D0",  // 700–800
+  "#9030C0",  // 800–1000
+  "#800080"   // >1000
 ];
+  
 function hexToRGBA(hex, alpha=255){
   const c = hex.replace("#","");
   return [
@@ -416,59 +603,155 @@ function hexToRGBA(hex, alpha=255){
   ];
 }
 function getColorPrate(v){
-  if (!isFinite(v) || v < 1) return [255,255,255,0];
+  if (!isFinite(v) || v < PRATE_LEVELS[0]) return [255,255,255,0];
   for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
     if (v >= PRATE_LEVELS[i] && v < PRATE_LEVELS[i+1]){
-      return hexToRGBA(PRATE_COLORS[i+1], 200);
+      return hexToRGBA(PRATE_COLORS[i], 255);
     }
   }
-  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 200);
+  return hexToRGBA(PRATE_COLORS[PRATE_COLORS.length - 1], 255);
 }
+  
 function buildLegendHTML(periodLabel){
   let html = `<b>${VAR_LABEL} (${VAR_UNITS})</b><br>`;
   html += `<span style="font-size:11px">${periodLabel}</span><br><br>`;
-  for (let i = 0; i < PRATE_LEVELS.length - 1; i++){
-    html += `
-      <div class="legend-row">
-        <div class="legend-color-box" style="background:${PRATE_COLORS[i+1]}"></div>
-        <span>${PRATE_LEVELS[i]} – ${PRATE_LEVELS[i+1]}</span>
-      </div>
-    `;
-  }
+
+  // >1000 arriba
   html += `
     <div class="legend-row">
       <div class="legend-color-box" style="background:${PRATE_COLORS[PRATE_COLORS.length-1]}"></div>
       <span>&gt; ${PRATE_LEVELS[PRATE_LEVELS.length-1]}</span>
     </div>
   `;
+
+  // 800–1000 ... 1–30
+  for (let i = PRATE_LEVELS.length - 2; i >= 0; i--){
+    const a = PRATE_LEVELS[i];
+    const b = PRATE_LEVELS[i+1];
+    html += `
+      <div class="legend-row">
+        <div class="legend-color-box" style="background:${PRATE_COLORS[i]}"></div>
+        <span>${a} – ${b}</span>
+      </div>
+    `;
+  }
+
   return html;
 }
 
-/* ================= RASTER (bounds correctos + hover consistente) ================= */
-function computeStep(arr){
-  if (!arr || arr.length < 2) return 0;
-  // paso robusto: usa la mediana de diffs (evita ruido)
-  const diffs = [];
-  for (let i=1;i<arr.length;i++){
-    const d = arr[i]-arr[i-1];
-    if (isFinite(d) && d!==0) diffs.push(Math.abs(d));
+/* ================= RASTER (alineado) + HOVER (coherente con pixel) ================= */
+
+function makeRasterTileLayer(data){
+  // Copias locales
+  const lat = data.grid.lat.slice();
+  let lon   = data.grid.lon.map(normalizeLon);
+  let z     = data.grid.data;
+  const ny  = lat.length;
+  const nx  = lon.length;
+
+  // Asegurar lon creciente + reordenar Z
+  let lonIncreasing = true;
+  for (let j=1;j<nx;j++){ if (!(lon[j] > lon[j-1])) { lonIncreasing=false; break; } }
+  if (!lonIncreasing){
+    const idx = lon.map((v,i)=>[v,i]).sort((a,b)=>a[0]-b[0]).map(p=>p[1]);
+    lon = idx.map(i=>lon[i]);
+    z   = z.map(row => idx.map(j=>row[j]));
   }
-  diffs.sort((a,b)=>a-b);
-  return diffs.length ? diffs[Math.floor(diffs.length/2)] : Math.abs(arr[1]-arr[0]);
+
+  const dLat = (ny>1) ? (lat[1]-lat[0]) : 0.05;
+  const dLon = (nx>1) ? (lon[1]-lon[0]) : 0.05;
+  const lat0 = lat[0];
+  const lon0 = lon[0];
+
+  function valueNearest(latq, lonq){
+    const lonN = normalizeLon(lonq);
+
+    if (latq < lat0 - dLat*0.5 || latq > lat[ny-1] + dLat*0.5) return null;
+    if (lonN < lon0 - dLon*0.5 || lonN > lon[nx-1] + dLon*0.5) return null;
+
+    const i = Math.round((latq - lat0)/dLat);
+    const j = Math.round((lonN - lon0)/dLon);
+    if (i<0||i>=ny||j<0||j>=nx) return null;
+
+    const v = z[i][j];
+    return (v==null || !isFinite(v)) ? null : v;
+  }
+
+  const layer = L.gridLayer({
+    tileSize: 256,
+    opacity: 1.0,
+    updateWhenZooming: false,
+    updateWhenIdle: true
+  });
+
+  layer.createTile = function(coords){
+    const dpr  = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const size = 256;
+
+    const tile = document.createElement("canvas");
+    tile.width  = size * dpr;
+    tile.height = size * dpr;
+
+    const ctx = tile.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const img = ctx.createImageData(size, size);
+
+    const px0 = coords.x * size;
+    const py0 = coords.y * size;
+
+    for (let py=0; py<size; py++){
+      for (let px=0; px<size; px++){
+        const p  = L.point(px0 + px, py0 + py);
+        const ll = map.unproject(p, coords.z);
+
+        const v = valueNearest(ll.lat, ll.lng);
+        const k = (py*size + px) * 4;
+
+        if (v === null){
+          img.data[k+3] = 0;
+          continue;
+        }
+
+        const rgba = getColorPrate(v);
+        img.data[k]   = rgba[0];
+        img.data[k+1] = rgba[1];
+        img.data[k+2] = rgba[2];
+        img.data[k+3] = rgba[3];
+      }
+    }
+
+    ctx.putImageData(img, 0, 0);
+    return tile;
+  };
+
+  return layer;
 }
 
+let rasterTiles = null;
+
+function drawRasterTiles(json){
+  currentData = json;
+  prepareGridIndex(currentData);
+
+  if (rasterTiles) map.removeLayer(rasterTiles);
+  rasterTiles = makeRasterTileLayer(currentData);
+  rasterTiles.addTo(map);
+}
+
+
 function drawRaster(data){
-  // Copias locales
-  let lat = data.grid.lat.slice();
-  let lon = data.grid.lon.map(normalizeLon);
-  let z   = data.grid.data; // [ny][nx]
+  // Copias locales (NO mutar el JSON)
+  let lat = data.grid.lat.slice();                 // [ny]
+  let lon = data.grid.lon.map(normalizeLon);       // [nx]
+  let z   = data.grid.data;                        // [ny][nx]
 
   const ny = lat.length;
   const nx = lon.length;
 
-  // 1) Lon creciente (si no, reordenar y reordenar z)
+  // 1) Asegurar lon creciente y reordenar Z si hace falta
   let lonIncreasing = true;
-  for (let j=1; j<nx; j++){
+  for (let j = 1; j < nx; j++){
     if (!(lon[j] > lon[j-1])) { lonIncreasing = false; break; }
   }
   if (!lonIncreasing){
@@ -477,41 +760,54 @@ function drawRaster(data){
     z   = z.map(row => idx.map(j => row[j]));
   }
 
-  // 2) Paso (celda) en grados
-  const dLat = computeStep(lat);
-  const dLon = computeStep(lon);
+  // 2) Resoluciones
+  const dLat = (ny > 1) ? Math.abs(lat[1] - lat[0]) : 0.5;
+  const dLon = (nx > 1) ? Math.abs(lon[1] - lon[0]) : 0.5;
 
-  // 3) Bounds usando PRIMER y ÚLTIMO centro (no min/max + spread)
-  const latInc = (ny>1) ? (lat[1] > lat[0]) : true;
-  const lon0 = lon[0], lonN = lon[nx-1];
+  // 3) Bounds por BORDES (centros ± EDGE_FACTOR*delta) + shift en celdas
+  const latMin = Math.min(...lat), latMax = Math.max(...lat);
+  const lonMin = Math.min(...lon), lonMax = Math.max(...lon);
 
-  const south0 = latInc ? lat[0]      : lat[ny-1];
-  const north0 = latInc ? lat[ny-1]   : lat[0];
+  const latShiftDeg = LAT_SHIFT_CELLS * dLat;
+  const lonShiftDeg = LON_SHIFT_CELLS * dLon;
 
-  let west  = lon0 - dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
-  let east  = lonN + dLon*HALF_CELL + LON_SHIFT_CELLS*dLon;
-  let south = south0 - dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
-  let north = north0 + dLat*HALF_CELL + LAT_SHIFT_CELLS*dLat;
+  //const bounds = [
+  //  [latMin - dLat*EDGE_FACTOR + latShiftDeg, lonMin - dLon*EDGE_FACTOR + lonShiftDeg],
+  //  [latMax + dLat*EDGE_FACTOR + latShiftDeg, lonMax + dLon*EDGE_FACTOR + lonShiftDeg]
+  //];
+  const bounds = L.latLngBounds(
+  	[latMin - dLat*0.5, lonMin - dLon*0.5],
+  	[latMax + dLat*0.5, lonMax + dLon*0.5]
+  );
 
-  const bounds = [[south, west],[north, east]];
+  // 4) Flip vertical correcto
+  const latIncreasing = (ny > 1) ? (lat[1] > lat[0]) : true;
 
-  // 4) Render a canvas
+  // 5) Render canvas -> dataURL
   const canvas = document.createElement("canvas");
-  canvas.width  = nx;
+  canvas.width = nx;
   canvas.height = ny;
-  const ctx = canvas.getContext("2d", { willReadFrequently: false });
+  const ctx = canvas.getContext("2d");
   const img = ctx.createImageData(nx, ny);
 
-  for (let i=0; i<ny; i++){
-    for (let j=0; j<nx; j++){
+  // máscara: 1 si el píxel se pintó (alpha>0)
+  const drawn = new Uint8Array(nx * ny);
+
+  for (let i = 0; i < ny; i++){
+    for (let j = 0; j < nx; j++){
       const v = z[i][j];
       if (v == null || !isFinite(v)) continue;
 
       const rgba = getColorPrate(v);
+      if (rgba[3] === 0) continue;
 
-      // “north on top” (si lat está creciente, invertimos)
-      const yPix = latInc ? (ny - 1 - i) : i;
-      const k = (yPix * nx + j) * 4;
+      // Leaflet espera “north on top”
+      const yPix = latIncreasing ? (ny - 1 - i) : i;
+
+      const kPix = yPix * nx + j; // pixel index
+      const k = kPix * 4;         // rgba index
+
+      drawn[kPix] = 1;
 
       img.data[k]   = rgba[0];
       img.data[k+1] = rgba[1];
@@ -519,78 +815,88 @@ function drawRaster(data){
       img.data[k+3] = rgba[3];
     }
   }
+
   ctx.putImageData(img, 0, 0);
 
-  // 5) Usar Blob URL (mejor que dataURL en Safari iOS)
-  canvas.toBlob(blob => {
-    if (!blob) return;
+  if (rasterOverlay) map.removeLayer(rasterOverlay);
+  rasterOverlay = L.imageOverlay(canvas.toDataURL(), bounds, {
+    opacity: 1.0,
+    interactive: false
+  }).addTo(map);
 
-    // limpiar overlay previo + blob URL previo
-    if (rasterOverlay) map.removeLayer(rasterOverlay);
-    if (rasterBlobUrl){
-      URL.revokeObjectURL(rasterBlobUrl);
-      rasterBlobUrl = null;
-    }
-
-    rasterBlobUrl = URL.createObjectURL(blob);
-    rasterOverlay = L.imageOverlay(rasterBlobUrl, bounds, {
-      opacity: 0.85,
-      interactive: false,
-      className: "forecast-raster"
-    }).addTo(map);
-
-    // iOS: fuerza repaint (parpadeo mínimo)
-    if (IS_IOS){
-      const el = rasterOverlay.getElement();
-      if (el){
-        el.style.webkitBackfaceVisibility = "hidden";
-        el.style.backfaceVisibility = "hidden";
-        requestAnimationFrame(()=>{ el.style.opacity = "0.84"; requestAnimationFrame(()=>{ el.style.opacity="0.85"; }); });
-      }
-    }
-
-    // Guardar render EXACTO para hover
-    currentData._render = {
-      z: z,
-      nx: nx,
-      ny: ny,
-      latIncreasing: latInc,
-      bounds: rasterOverlay.getBounds()
-    };
-  }, "image/png");
+  // Guardar render EXACTO para hover coherente
+  currentData._render = {
+    z,
+    nx, ny,
+    latIncreasing,
+    bounds: rasterOverlay.getBounds(),
+    drawn
+  };
 }
 
 function valueAtPixelNearest(latlng){
-  const R = currentData? currentData._render : null;
-  if (!R) return null;
+  if (!currentData || !currentData._render) return null;
 
+  const R = currentData._render;
   const b = R.bounds;
 
-  const x = (latlng.lng - b.getWest()) / (b.getEast() - b.getWest());
-  const y = (b.getNorth() - latlng.lat) / (b.getNorth() - b.getSouth());
+  // ✅ Usar la proyección del CRS (EPSG:3857)
+  const crs = map.options.crs;
+  const p   = crs.project(latlng);
+  const nw  = crs.project(b.getNorthWest());
+  const se  = crs.project(b.getSouthEast());
+
+  const x = (p.x - nw.x) / (se.x - nw.x);
+  const y = (nw.y - p.y) / (nw.y - se.y); // top=0, bottom=1
+
   if (x < 0 || x > 1 || y < 0 || y > 1) return null;
 
-  // coords de pixel en la imagen (top-left)
-  const xPix = x * (R.nx - 1);
-  const yPix = y * (R.ny - 1);
+  // Pixel del canvas (top-left)
+  const jPix = Math.max(0, Math.min(R.nx - 1, Math.floor(x * R.nx)));
+  const iPix = Math.max(0, Math.min(R.ny - 1, Math.floor(y * R.ny)));
 
-  // convertir a índice i del grid original
-  const iFloat = R.latIncreasing ? ((R.ny - 1) - yPix) : yPix;
-  const jFloat = xPix;
+  // máscara: si no se pintó ese pixel, no hay hover
+  const kPix = iPix * R.nx + jPix;
+  if (R.drawn && R.drawn[kPix] === 0) return null;
 
-  const i = Math.round(iFloat);
-  const j = Math.round(jFloat);
-
-  if (i < 0 || j < 0 || i >= R.ny || j >= R.nx) return null;
+  // Convertir canvas -> índice del grid original (por flip vertical)
+  const i = R.latIncreasing ? (R.ny - 1 - iPix) : iPix;
+  const j = jPix;
 
   const v = R.z[i][j];
   return (v == null || !isFinite(v)) ? null : v;
 }
 
+function showValueBox(latlng, pageXY){
+  if (!currentData) return;
+
+  const val = valueAtGridNearest(latlng.lat, latlng.lng);
+  const box = document.getElementById("hoverBox");
+
+  if (val === null){
+    box.style.display = "none";
+    return;
+  }
+
+  box.innerHTML = `
+    <b>${VAR_LABEL}</b><br>
+    Valor: <b>${val.toFixed(1)} ${VAR_UNITS}</b><br>
+    Lat: ${latlng.lat.toFixed(2)}°<br>
+    Lon: ${latlng.lng.toFixed(2)}°<br>
+    Tipo: ${currentType === "mensual" ? "Mensual" : "Bimestral"}
+  `;
+
+  box.style.left = (pageXY.x + 15) + "px";
+  box.style.top  = (pageXY.y + 15) + "px";
+  box.style.display = "block";
+}
+
+  
+
 /* ================= DATA ================= */
 function loadManifest(){
-  // el manifest conviene NO caché, porque cambia con nuevos pronósticos
-  fetchJsonSafe(`${currentType}/auto_manifest.json`, "no-store")
+  fetch(`${currentType}/auto_manifest.json`)
+    .then(r => r.json())
     .then(m => {
       steps = m.files || m;
       const sel = document.getElementById("periodSelect");
@@ -604,10 +910,11 @@ function loadGrid(){
   const sel = document.getElementById("periodSelect");
   if (!sel.value) return;
 
-  fetchJsonSafe(`${currentType}/${sel.value}`, "force-cache")
+  fetch(`${currentType}/${sel.value}`)
+    .then(r => r.json())
     .then(json => {
       currentData = json;
-      drawRaster(json);
+      drawRasterTiles(json);
 
       const body = document.querySelector(".legend-body");
       if (body){
@@ -616,10 +923,7 @@ function loadGrid(){
         );
       }
     })
-    .catch(err => {
-      console.error("[grid]", err);
-      alert("No pude cargar el JSON del pronóstico. Revisa rutas/archivo.");
-    });
+    .catch(err => console.error("[grid]", err));
 }
 
 /* ================= EVENTS ================= */
@@ -634,6 +938,7 @@ window.onload = ()=>{
   loadManifest();
   loadMexicoBoundaries();
   setupCollapsibles();
+  setTimeout(() => map.invalidateSize(), 200); // 👈 importante
 };
 </script>
 </body>
