@@ -193,7 +193,7 @@ html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
 --------------------------------------------------------- */
 const params = new URLSearchParams(location.search);
 const HALF_CELL      = parseFloat(params.get("half") ?? "0.5");      // normalmente 0.5 si lon/lat son centros
-const LAT_SHIFT_CELLS= parseFloat(params.get("latShift") ?? "50.0");  // mover en celdas (ej -0.5)
+const LAT_SHIFT_CELLS= parseFloat(params.get("latShift") ?? "-5.0");  // mover en celdas (ej -0.5)
 const LON_SHIFT_CELLS= parseFloat(params.get("lonShift") ?? "0.0");
 const HOVER_RADIUS   = parseInt(params.get("hoverR") ?? "2", 10);    // radio vecinos válidos
 const DEBUG          = (params.get("debug") === "1");
